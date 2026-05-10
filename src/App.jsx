@@ -656,7 +656,7 @@ function AdvancedSearch({ matches, msgs, blocked, onOpenChat, onOpenProfile, onL
 }
 // ============================================================
 
-export default function App() {
+export default export default function App() {
   const [lang, setLang] = useState("uz");
   const T = LANGS[lang];
   const [tab, setTab] = useState("discover");
