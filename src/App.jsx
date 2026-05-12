@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 
 // =====================================================
 // SUPABASE — Real-time integratsiya
@@ -31,8 +31,8 @@ async function initSupabase() {
 // Telegram user ID olish
 function getTgUser() {
   try {
-    return window.Telegram?.WebApp?.initDataUnsafe?.user || { id: Math.floor(Math.random()*999999), first_name: "Test" };
-  } catch { return { id: Math.floor(Math.random()*999999), first_name: "Test" }; }
+    return window.Telegram?.WebApp?.initDataUnsafe?.user || null;
+  } catch { return null; }
 }
 
 // LocalStorage dan user ID olish yoki yaratish
@@ -47,9 +47,9 @@ function getChatId(a, b) { return [a, b].sort().join(':'); }
 
 
 const LANGS = {
-uz:  { flag:"UZ",  discover:"Qidiruv", matches:"Lichka", go:"GO", stories:"Stories", shop:"Dokon", writeMsg:"Xabar yozing…", online:"Online", cancel:"Bekor", aboutInfo:"haqida malumot", langTitle:"Til tanlash", settingsTitle:"Sozlamalar", support:"Qollab-quvvatlash", suggestion:"Taklif va shikoyatlar", terms:"Foydalanish shartlari", rate:"Ilovani baholash", myProfile:"Mening profilim", noMatch:"Hali matchlar yoq", complaintSent:"Shikoyatingiz tez orada administratsiyamiz tomonidan korib chiqiladi. Betibor bolmaganingiz uchun rahmat!" },
-kir: { flag:"УЗ", discover:"Қидирув",  matches:"Лички",  go:"GO", stories:"Ҳикоялар", shop:"Дўкон", writeMsg:"Хабар ёзинг…", online:"Онлайн", cancel:"Бекор", aboutInfo:"ҳақида маълумот", langTitle:"Тил танлаш", settingsTitle:"Созламалар", support:"Қўллаб-қувватлаш", suggestion:"Таклиф ва шикоятлар", terms:"Фойдаланиш шартлари", rate:"Иловани баҳолаш", myProfile:"Менинг профилим", noMatch:"Ҳали матчлар йўқ", complaintSent:"Шикоятингиз тез орада администратсиямиз томонидан кўриб чиқилади. Раҳмат!" },
-ru:  { flag:"RU",  discover:"Поиск",   matches:"Чаты",   go:"GO", stories:"Истории",  shop:"Магазин", writeMsg:"Написать…", online:"Онлайн", cancel:"Отмена", aboutInfo:"подробнее", langTitle:"Выбор языка", settingsTitle:"Настройки", support:"Поддержка", suggestion:"Предложения", terms:"Условия", rate:"Оценить", myProfile:"Мой профиль", noMatch:"Нет совпадений", complaintSent:"Ваша жалоба будет рассмотрена администрацией. Спасибо!" },
+uz:  { flag:"UZ",  discover:"Qidiruv", matches:"Yozishmalar", go:"GO", stories:"Stories", shop:"Dokon", writeMsg:"Xabar yozing…", online:"Online", cancel:"Bekor", aboutInfo:"haqida malumot", langTitle:"Til tanlash", settingsTitle:"Sozlamalar", support:"Qollab-quvvatlash", suggestion:"Taklif va shikoyatlar", terms:"Foydalanish shartlari", rate:"Ilovani baholash", myProfile:"Mening profilim", noMatch:"Hali yozishmalar yoq", complaintSent:"Shikoyatingiz tez orada administratsiyamiz tomonidan korib chiqiladi. Betibor bolmaganingiz uchun rahmat!" },
+kir: { flag:"УЗ", discover:"Қидирув",  matches:"Ёзишмалар",  go:"GO", stories:"Ҳикоялар", shop:"Дўкон", writeMsg:"Хабар ёзинг…", online:"Онлайн", cancel:"Бекор", aboutInfo:"ҳақида маълумот", langTitle:"Тил танлаш", settingsTitle:"Созламалар", support:"Қўллаб-қувватлаш", suggestion:"Таклиф ва шикоятлар", terms:"Фойдаланиш шартлари", rate:"Иловани баҳолаш", myProfile:"Менинг профилим", noMatch:"Ҳали ёзишмалар йўқ", complaintSent:"Шикоятингиз тез орада администратсиямиз томонидан кўриб чиқилади. Раҳмат!" },
+ru:  { flag:"RU",  discover:"Поиск",   matches:"Переписки",   go:"GO", stories:"Истории",  shop:"Магазин", writeMsg:"Написать…", online:"Онлайн", cancel:"Отмена", aboutInfo:"подробнее", langTitle:"Выбор языка", settingsTitle:"Настройки", support:"Поддержка", suggestion:"Предложения", terms:"Условия", rate:"Оценить", myProfile:"Мой профиль", noMatch:"Нет переписок", complaintSent:"Ваша жалоба будет рассмотрена администрацией. Спасибо!" },
 };
 
 const C = { bg:"#f0f8ff", accent:"#ff6eb4", sky:"#38bdf8", text:"#1e293b", muted:"#94a3b8", border:"#e2edf7", green:"#22c55e", gold:"#f59e0b", purple:"#a855f7", pink:"#f472b6" };
@@ -119,17 +119,17 @@ const TG_GIFS = [
 ];
 
 const USERS = [
-  {id:1,name:"Nilufar Karimova",age:23,city:"Toshkent shahri",gender:"ayol",demoPhoto:"https://i.pravatar.cc/400?img=47",extraPhotos:["https://i.pravatar.cc/400?img=48","https://i.pravatar.cc/400?img=49"],emoji:"👩",bio:"Raqs va musiqa sevaman",online:true,rating:4.8,vip:true,stories:["🌅","🎶","🌺"],kasb:"Raqqosa, musiqa muallimi",gifts:42,likes:187,seeking:"Hayotga ijobiy qarash va maqsadga intilish men uchun muhim. Samimiy, mehnatkash va oilaga e'tibor beradigan yigit qidirmoqdaman. Birgalikda sayr, musiqa tinglash va yangi joylarni kashf etishni yaxshi ko'raman. Jiddiy munosabat uchun tayyor bo'lgan insonni izlayapman 🌸",
+  {id:1,name:"Nilufar Karimova",age:23,city:"Toshkent shahri",gender:"ayol",demoPhoto:"https://i.pravatar.cc/400?img=47",extraPhotos:["https://i.pravatar.cc/400?img=48","https://i.pravatar.cc/400?img=49"],emoji:"👩",bio:"Raqs va musiqa sevaman",online:true,rating:4.8,vip:true,stories:["🌅","🎶","🌺"],kasb:"Raqqosa, musiqa muallimi",gifts:42,likes:187,voiceVerified:true,voiceUrl:null,voiceDeclined:false,tgUsername:"nilufar_demo",tgUserId:"123456789",seeking:"Hayotga ijobiy qarash va maqsadga intilish men uchun muhim. Samimiy, mehnatkash va oilaga e'tibor beradigan yigit qidirmoqdaman. Birgalikda sayr, musiqa tinglash va yangi joylarni kashf etishni yaxshi ko'raman. Jiddiy munosabat uchun tayyor bo'lgan insonni izlayapman 🌸",
     trust:{photo:90,bio:85,kasb:80,phone:100,id:95,activity:92,likeRatio:88,blockRatio:97}},
-  {id:2,name:"Kamola Yusupova",age:25,city:"Samarqand",gender:"ayol",demoPhoto:"https://i.pravatar.cc/400?img=45",emoji:"👩",bio:"Sayohat qilishni yaxshi koraman",online:false,rating:4.5,vip:false,stories:["🏔️","🌊","🗺️"],kasb:"Sayohat bloggeri",gifts:18,likes:74,seeking:"Dunyo bo'ylab sayohat qilishni orzu qiladigan, hayotdan zavq oladigan do'st yoki hamroh izlayapman. Birgalikda yangi mamlakatlarni ko'rish, turli madaniyatlarni o'rganish — bu mening orzuyim ✈️🌍",
+  {id:2,tgUserId:"234567890",name:"Kamola Yusupova",age:25,city:"Samarqand",gender:"ayol",demoPhoto:"https://i.pravatar.cc/400?img=45",emoji:"👩",bio:"Sayohat qilishni yaxshi koraman",online:false,rating:4.5,vip:false,stories:["🏔️","🌊","🗺️"],kasb:"Sayohat bloggeri",gifts:18,likes:74,seeking:"Dunyo bo'ylab sayohat qilishni orzu qiladigan, hayotdan zavq oladigan do'st yoki hamroh izlayapman. Birgalikda yangi mamlakatlarni ko'rish, turli madaniyatlarni o'rganish — bu mening orzuyim ✈️🌍",
     trust:{photo:75,bio:70,kasb:65,phone:0,id:0,activity:60,likeRatio:72,blockRatio:90}},
-  {id:3,name:"Dildora Nazarova",age:21,city:"Buxoro",gender:"ayol",demoPhoto:"https://i.pravatar.cc/400?img=44",emoji:"👩",bio:"Kitob oqish va pishiriq",online:true,rating:4.9,vip:true,stories:["📚","🍰","🌸"],kasb:"Konditer, blogger",gifts:67,likes:312,seeking:"Kitob o'qishni, oshxonada yangi retseptlar sinab ko'rishni va tabiatda dam olishni yaxshi ko'raman. O'zimga o'xshash — tinch, oilaviy, maqsadli yigit bilan tanishmoqchiman. Turmush qurishga tayyor bo'lgan samimiy insonni qidiraman 💍📚",
+  {id:3,tgUserId:"345678901",name:"Dildora Nazarova",age:21,city:"Buxoro",gender:"ayol",demoPhoto:"https://i.pravatar.cc/400?img=44",emoji:"👩",bio:"Kitob oqish va pishiriq",online:true,rating:4.9,vip:true,stories:["📚","🍰","🌸"],kasb:"Konditer, blogger",gifts:67,likes:312,seeking:"Kitob o'qishni, oshxonada yangi retseptlar sinab ko'rishni va tabiatda dam olishni yaxshi ko'raman. O'zimga o'xshash — tinch, oilaviy, maqsadli yigit bilan tanishmoqchiman. Turmush qurishga tayyor bo'lgan samimiy insonni qidiraman 💍📚",
     trust:{photo:95,bio:90,kasb:85,phone:100,id:100,activity:97,likeRatio:95,blockRatio:99}},
-  {id:4,name:"Mohira Toshmatova",age:27,city:"Namangan",gender:"ayol",demoPhoto:"https://i.pravatar.cc/400?img=41",emoji:"👩",bio:"Sport va sogrom turmush",online:true,rating:4.6,vip:false,stories:["🏋️","🥑","🧘"],kasb:"Fitness murabbiyi",gifts:9,likes:38,seeking:"Sog'lom turmush tarzi yuritadigan, sport bilan shug'ullanadigan yigit izlayapman. Birgalikda yugurish, velosipedda sayr va sog'lom ovqatlanish — mening hayot tarzim. Jiddiy munosabat uchun 💪🥗",
+  {id:4,tgUserId:"456789012",name:"Mohira Toshmatova",age:27,city:"Namangan",gender:"ayol",demoPhoto:"https://i.pravatar.cc/400?img=41",emoji:"👩",bio:"Sport va sogrom turmush",online:true,rating:4.6,vip:false,stories:["🏋️","🥑","🧘"],kasb:"Fitness murabbiyi",gifts:9,likes:38,seeking:"Sog'lom turmush tarzi yuritadigan, sport bilan shug'ullanadigan yigit izlayapman. Birgalikda yugurish, velosipedda sayr va sog'lom ovqatlanish — mening hayot tarzim. Jiddiy munosabat uchun 💪🥗",
     trust:{photo:80,bio:75,kasb:70,phone:0,id:0,activity:78,likeRatio:74,blockRatio:88}},
-  {id:5,name:"Jasur Rahimov",age:24,city:"Toshkent shahri",gender:"erkak",demoPhoto:"https://i.pravatar.cc/400?img=12",emoji:"👨",bio:"Futbol va musiqa muxlisi",online:true,rating:4.6,vip:false,stories:["⚽","🎸","🌆"],kasb:"IT dasturchi",gifts:31,likes:142,seeking:"Hayotga ijobiy, quvnoq va o'z maqsadiga ega qiz bilan tanishmoqchiman. Musiqa, futbol va texnologiyani yaxshi ko'raman. Do'stona munosabatdan boshlangan jiddiy aloqani qidiraman 😊⚽",
+  {id:5,tgUserId:"567890123",name:"Jasur Rahimov",age:24,city:"Toshkent shahri",gender:"erkak",demoPhoto:"https://i.pravatar.cc/400?img=12",emoji:"👨",bio:"Futbol va musiqa muxlisi",online:true,rating:4.6,vip:false,stories:["⚽","🎸","🌆"],kasb:"IT dasturchi",gifts:31,likes:142,seeking:"Hayotga ijobiy, quvnoq va o'z maqsadiga ega qiz bilan tanishmoqchiman. Musiqa, futbol va texnologiyani yaxshi ko'raman. Do'stona munosabatdan boshlangan jiddiy aloqani qidiraman 😊⚽",
     trust:{photo:85,bio:80,kasb:90,phone:100,id:0,activity:83,likeRatio:86,blockRatio:93}},
-  {id:6,name:"Bobur Xolmatov",age:26,city:"Samarqand",gender:"erkak",demoPhoto:"https://i.pravatar.cc/400?img=15",emoji:"👨",bio:"Biznes va sayohat",online:true,rating:4.4,vip:true,stories:["💼","✈️","🌍"],kasb:"Tadbirkor",gifts:54,likes:228,seeking:"O'z oldiga maqsad qo'ya oladigan, oilani qadrlaydigan, mustaqil fikrlaydigan qiz bilan jiddiy munosabat qurmoqchiman. Biznes va sayohat — mening dunyom, shu dunyoni birga kashf etgimiz keladi 💼✈️",
+  {id:6,tgUserId:"678901234",name:"Bobur Xolmatov",age:26,city:"Samarqand",gender:"erkak",demoPhoto:"https://i.pravatar.cc/400?img=15",emoji:"👨",bio:"Biznes va sayohat",online:true,rating:4.4,vip:true,stories:["💼","✈️","🌍"],kasb:"Tadbirkor",gifts:54,likes:228,seeking:"O'z oldiga maqsad qo'ya oladigan, oilani qadrlaydigan, mustaqil fikrlaydigan qiz bilan jiddiy munosabat qurmoqchiman. Biznes va sayohat — mening dunyom, shu dunyoni birga kashf etgimiz keladi 💼✈️",
     trust:{photo:88,bio:82,kasb:85,phone:100,id:90,activity:87,likeRatio:89,blockRatio:91}},
   {id:7,name:"Malika Ergasheva",age:24,city:"Toshkent shahri",gender:"ayol",demoPhoto:"https://i.pravatar.cc/400?img=25",extraPhotos:["https://i.pravatar.cc/400?img=26","https://i.pravatar.cc/400?img=27"],emoji:"👩",bio:"Raqs, yoga va tabiat sevaman",online:true,rating:4.9,vip:true,stories:["🌿","💃","🧘"],kasb:"Yoga murabbiyi",seeking:"Tabiatni sevadigan, tinch va baxtli hayot qurishni xohlagan yigit izlayapman. Yoga, meditatsiya va sog'lom ovqatlanish — mening ustuvorliklarim. Oilaga sodiq, samimiy inson bilan uchrashmоqchiman 🧘🌿",
     gifts:88,likes:401,trust:{photo:98,bio:95,kasb:90,phone:100,id:100,activity:99,likeRatio:97,blockRatio:100}},
@@ -334,23 +334,15 @@ function AdvancedSearch({ matches, msgs, blocked, onOpenChat, onOpenProfile, onL
   const doSearch = (q) => {
     if (!q.trim()) { setResults([]); setSearched(false); return; }
     const lq = q.toLowerCase().trim();
-    const filtered = USERS.filter(u =>
+    const filtered = ALL_USERS.filter(u =>
       !blocked.includes(u.id) &&
       u.name.toLowerCase().includes(lq)
     );
-
-    // Tartiblash: avval do'stlar (match), keyin muloqot qilganlar, keyin qolganlar
     const sorted = [...filtered].sort((a, b) => {
-      const aFriend = isFriend(a.id);
-      const bFriend = isFriend(b.id);
-      const aTalked = hasConversation(a.id);
-      const bTalked = hasConversation(b.id);
-
-      const aScore = (aFriend ? 2 : 0) + (aTalked ? 1 : 0);
-      const bScore = (bFriend ? 2 : 0) + (bTalked ? 1 : 0);
+      const aScore = (matches.includes(a.id) ? 2 : 0) + (msgs[a.id]?.length > 0 ? 1 : 0);
+      const bScore = (matches.includes(b.id) ? 2 : 0) + (msgs[b.id]?.length > 0 ? 1 : 0);
       return bScore - aScore;
     });
-
     setResults(sorted);
     setSearched(true);
   };
@@ -558,17 +550,17 @@ function AdvancedSearch({ matches, msgs, blocked, onOpenChat, onOpenProfile, onL
                     <div style={{flex:1,minWidth:0,cursor:"pointer"}} onClick={()=>onOpenProfile(user)}>
                       <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:3}}>
                         <div style={{fontWeight:900,fontSize:16,color:C.accent,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",textDecoration:"underline dotted",textDecorationColor:frameColor+"66"}}>
-                          {/* Qidiruvda mos qismni ajratib ko'rsatish */}
+                          {/* Faqat birinchi ism */}
                           {(()=>{
-                            const name = user.name;
+                            const firstName = user.name.split(" ")[0];
                             const lq = query.toLowerCase();
-                            const idx2 = name.toLowerCase().indexOf(lq);
-                            if (idx2 === -1) return name;
+                            const idx2 = firstName.toLowerCase().indexOf(lq);
+                            if (idx2 === -1) return firstName;
                             return (
                               <>
-                                {name.slice(0,idx2)}
-                                <span style={{background:"#fef08a",color:"#854d0e",borderRadius:4,padding:"0 2px"}}>{name.slice(idx2,idx2+query.length)}</span>
-                                {name.slice(idx2+query.length)}
+                                {firstName.slice(0,idx2)}
+                                <span style={{background:"#fef08a",color:"#854d0e",borderRadius:4,padding:"0 2px"}}>{firstName.slice(idx2,idx2+query.length)}</span>
+                                {firstName.slice(idx2+query.length)}
                               </>
                             );
                           })()}
@@ -711,7 +703,7 @@ export default function App() {
             const other = m.user1_id === myUserId ? m.user2_id : m.user1_id;
             if (m.user1_id === myUserId || m.user2_id === myUserId) {
               setMatches(prev => prev.includes(other) ? prev : [...prev, other]);
-              toast$('🎉 Yangi match!', '#22c55e');
+              if(notifSettings.matches) toast$('🎉 Yangi match!', '#22c55e');
             }
           })
         .subscribe();
@@ -742,6 +734,20 @@ export default function App() {
           (p) => { const g=p.new; setIncomingGift({ from:{name:'Kimdir',id:g.from_user_id}, gift:{emoji:g.emoji,name:g.gift_type,price:g.price}, note:g.note }); })
         .subscribe();
 
+      // ── REALTIME: Like bildirishnoma ──────────────────
+      const likeSub = client.channel('likes-ch')
+        .on('postgres_changes', { event:'INSERT', schema:'public', table:'likes', filter:`to_user_id=eq.${myUserId}` },
+          (p) => {
+            const fromId = p.new.from_user_id;
+            const fromUser = ALL_USERS.find(u => String(u.id) === String(fromId));
+            setLikeNotif({
+              user: fromUser || {name:'Kimdir', emoji:'❤️', demoPhoto:null, city:''},
+              time: new Date()
+            });
+            setTimeout(() => setLikeNotif(null), 5000);
+          })
+        .subscribe();
+
       realtimeRef.current = [msgSub, matchSub, goSub, onlineSub, giftSub];
 
       // Online yuborishni davom ettirish
@@ -753,8 +759,121 @@ export default function App() {
     }).catch(() => setDbReady(true));
   }, []);
 
-  const [profile, setProfile] = useState(null);
-  const [form, setForm] = useState({name:"",age:"",city:"",bio:"",gender:"",district:"",millat:"",phone:"",phoneAnon:false,goal:"",hobbies:[],married:"yoq",children:"yoq",kasb:"",seeking:""});
+  // ── SUPABASE: Profilni yuklash ──────────────────────────
+  useEffect(()=>{
+    if(!sb || !myUserId) return;
+    sb.from('users').select('*').eq('id', myUserId).maybeSingle().then(({data})=>{
+      if(data){
+        setProfile(p=>({
+          ...p,
+          name: data.name||p.name,
+          age: data.age||p.age,
+          city: data.city||p.city,
+          gender: data.gender||p.gender,
+          bio: data.bio||p.bio,
+          kasb: data.kasb||p.kasb,
+          height: data.height||p.height,
+          weight: data.weight||p.weight,
+          seeking: data.seeking||p.seeking,
+          tgUsername: data.tg_username||p.tgUsername,
+          tgUserId: data.tg_id||p.tgUserId,
+        }));
+        if(data.photo_url) setProfilePhoto(data.photo_url);
+        if(data.extra_photos) setMyPhotos(data.extra_photos||[]);
+      }
+    }).catch(()=>{});
+  },[sb, myUserId]);
+
+  // ── SUPABASE: Real foydalanuvchilarni yuklash ───────────
+  const [realUsers, setRealUsers] = useState([]);
+  useEffect(()=>{
+    if(!sb) return;
+    sb.from('users').select('*').neq('id', myUserId).limit(50).then(({data})=>{
+      if(data && data.length > 0){
+        setRealUsers(data.map(u=>({
+          id: u.id,
+          name: u.name||'Foydalanuvchi',
+          age: u.age||25,
+          city: u.city||'Toshkent',
+          gender: u.gender||'erkak',
+          bio: u.bio||'',
+          kasb: u.kasb||'',
+          height: u.height||'',
+          weight: u.weight||'',
+          demoPhoto: u.photo_url||null,
+          extraPhotos: u.extra_photos||[],
+          emoji: u.gender==='ayol'?'👩':'👨',
+          online: u.online||false,
+          rating: u.rating||4.5,
+          vip: u.vip||false,
+          tgUserId: u.tg_id||'',
+          tgUsername: u.tg_username||'',
+          seeking: u.seeking||'',
+        })));
+      }
+    }).catch(()=>{});
+
+    // Realtime: yangi foydalanuvchi qo'shilsa
+    const userSub = sb.channel('users-ch')
+      .on('postgres_changes',{event:'INSERT',schema:'public',table:'users'},
+        (p)=>{
+          if(p.new.id === myUserId) return;
+          setRealUsers(prev=>{
+            if(prev.find(u=>u.id===p.new.id)) return prev;
+            return [...prev, {
+              id:p.new.id, name:p.new.name||'Yangi', age:p.new.age||25,
+              city:p.new.city||'Toshkent', gender:p.new.gender||'erkak',
+              demoPhoto:p.new.photo_url||null, extraPhotos:p.new.extra_photos||[],
+              emoji:p.new.gender==='ayol'?'👩':'👨',
+              online:p.new.online||false, rating:p.new.rating||4.5,
+              vip:p.new.vip||false, tgUserId:p.new.tg_id||'',
+              tgUsername:p.new.tg_username||'',
+            }];
+          });
+        })
+      .on('postgres_changes',{event:'UPDATE',schema:'public',table:'users'},
+        (p)=>{
+          if(p.new.id === myUserId) return;
+          setRealUsers(prev=>prev.map(u=>u.id===p.new.id?{
+            ...u, name:p.new.name||u.name, age:p.new.age||u.age,
+            city:p.new.city||u.city, gender:p.new.gender||u.gender,
+            demoPhoto:p.new.photo_url||u.demoPhoto,
+            extraPhotos:p.new.extra_photos||u.extraPhotos,
+            online:p.new.online||false, vip:p.new.vip||false,
+            rating:p.new.rating||u.rating, kasb:p.new.kasb||u.kasb,
+            bio:p.new.bio||u.bio, seeking:p.new.seeking||u.seeking,
+            tgUserId:p.new.tg_id||u.tgUserId,
+            tgUsername:p.new.tg_username||u.tgUsername,
+          }:u));
+        })
+      .subscribe();
+
+    return ()=>userSub.unsubscribe();
+  },[sb]);
+
+  // Real + demo foydalanuvchilarni birlashtirish
+  const ALL_USERS = useMemo(()=>{
+    const realIds = new Set(realUsers.map(u=>String(u.id)));
+    const demoFiltered = USERS.filter(u=>!realIds.has(String(u.id)));
+    return [...realUsers, ...demoFiltered];
+  },[realUsers]);
+
+  const [profile, setProfile] = useState({name:"Demo Foydalanuvchi",age:"25",city:"Toshkent shahri",gender:"erkak",bio:"Demo rejim",kasb:"Dasturchi",seeking:"Do'st",height:"",weight:""});
+  const [form, setForm] = useState(()=>{
+    const tg = getTgUser();
+    return {
+      name: tg ? ((tg.first_name||"")+" "+(tg.last_name||"")).trim() : "",
+      firstName: tg?.first_name || "",
+      lastName: tg?.last_name || "",
+      age:"", city:"", bio:"", gender:"",
+      district:"", millat:"", phone:"",
+      phoneAnon:false, goal:"", hobbies:[],
+      married:"yoq", children:"yoq", kasb:"",
+      seeking:"", height:"", weight:"",
+      tgUsername: tg?.username || "",
+      tgUserId: tg?.id ? String(tg.id) : "",
+    };
+  });
   const [matches, setMatches] = useState([1,2]);
   const [liked, setLiked] = useState([]);
   const [blocked, setBlocked] = useState([]);
@@ -792,6 +911,15 @@ export default function App() {
   const [showMap, setShowMap] = useState(false);
   const [showAppMenu, setShowAppMenu] = useState(false);
   const [showLangModal, setShowLangModal] = useState(false);
+  const [showNotifSettings, setShowNotifSettings] = useState(false);
+  const [notifSettings, setNotifSettings] = useState({
+    likes: true,
+    views: true,
+    gifts: true,
+    blocks: true,
+    messages: true,
+    matches: true,
+  });
   const [showBlockModal, setShowBlockModal] = useState(null);
   const [showComplaintModal, setShowComplaintModal] = useState(null);
   const [complaintReason, setComplaintReason] = useState("");
@@ -804,9 +932,9 @@ export default function App() {
   const [incomingGift, setIncomingGift] = useState(null);
   const [profilePhoto, setProfilePhoto] = useState(null);
   const [goInvites, setGoInvites] = useState([
-    {id:1,userId:1,name:"Nilufar",demoPhoto:"https://i.pravatar.cc/400?img=47",type:"🎬 Kino",text:"Bugun kechqurun kinoga borishni xohlaysizmi?",city:"Toshkent",time:"19:00",date:"Bugun",likes:12,audience:"erkaklar"},
-    {id:2,userId:3,name:"Dildora",demoPhoto:"https://i.pravatar.cc/400?img=44",type:"🍽️ Ovqatlanish",text:"Toshkentda birgalikda tushlik qilishni taklif etaman",city:"Toshkent",time:"13:00",date:"Ertaga",likes:8,audience:"erkaklar"},
-    {id:3,userId:5,name:"Jasur",demoPhoto:"https://i.pravatar.cc/400?img=12",type:"🌳 Parkka",text:"Yangi Ozbekiston bogida sayrga taklif! Havo yaxshi",city:"Toshkent",time:"17:00",date:"Shanba",likes:21,audience:"ayollar"},
+    {id:1,userId:1,name:"Nilufar",demoPhoto:"https://i.pravatar.cc/400?img=47",type:"🎬 Kino",text:"Bugun kechqurun kinoga borishni xohlaysizmi?",city:"Toshkent",time:"19:00",date:"Bugun",likes:12,audience:"erkaklar",urgent:true},
+    {id:2,userId:3,name:"Dildora",demoPhoto:"https://i.pravatar.cc/400?img=44",type:"🍽️ Ovqatlanish",text:"Toshkentda birgalikda tushlik qilishni taklif etaman",city:"Toshkent",time:"13:00",date:"Ertaga",likes:8,audience:"erkaklar",urgent:false},
+    {id:3,userId:5,name:"Jasur",demoPhoto:"https://i.pravatar.cc/400?img=12",type:"🌳 Parkka",text:"Yangi Ozbekiston bogida sayrga taklif! Havo yaxshi",city:"Toshkent",time:"17:00",date:"Shanba",likes:21,audience:"ayollar",urgent:false},
   ]);
   const [myInviteCount, setMyInviteCount] = useState(0);
   const [lastInviteTime, setLastInviteTime] = useState(null);
@@ -862,16 +990,55 @@ export default function App() {
   const [showTopList, setShowTopList] = useState(false);
   const [topListTab, setTopListTab] = useState("ayol");
   const [showStats, setShowStats] = useState(false);
+  const [showAdminPanel, setShowAdminPanel] = useState(false);
+  const [adminAuth, setAdminAuth] = useState(false);
+  const [adminPwd, setAdminPwd] = useState("");
+  const [adminLogin, setAdminLogin] = useState("");
+  const [adminTab, setAdminTab] = useState("users");
+  const [adminSelectedUser, setAdminSelectedUser] = useState(null);
+  const ADMIN_LOGIN = "admin";
+  const ADMIN_PASSWORD = "pepeadmin";
+  const [matchGenderTab, setMatchGenderTab] = useState("all");
+  const [pinnedChats, setPinnedChats] = useState([]);
+  const [archivedChats, setArchivedChats] = useState([]);
+  const [matchSearch, setMatchSearch] = useState("");
+  const [showOnlineOnly, setShowOnlineOnly] = useState(false);
+  const [typingUsers, setTypingUsers] = useState({});
+  const [showArchived, setShowArchived] = useState(false);
+  const [chatVoiceRecording, setChatVoiceRecording] = useState(false);
+  const [chatVoiceMR, setChatVoiceMR] = useState(null);
+  const [tgRequests, setTgRequests] = useState({});
+  const [showTgModal, setShowTgModal] = useState(null);
+  const [chatMenuOpen, setChatMenuOpen] = useState(null);
+  const [chatBgs, setChatBgs] = useState({});
+  const [showPhotoWarning, setShowPhotoWarning] = useState(false);
+  const [showGoRequestModal, setShowGoRequestModal] = useState(null);
+  const [activityTab, setActivityTab] = useState("likes");
+  const [activityPeriod, setActivityPeriod] = useState("1d");
+  const [likeNotif, setLikeNotif] = useState(null);
+  const [detailExpandModal, setDetailExpandModal] = useState(null); // "seeking" | "voice" // {user, time}
+  const [voiceBlob, setVoiceBlob] = useState(null);
+  const [voiceRecording, setVoiceRecording] = useState(false);
+  const [voiceDuration, setVoiceDuration] = useState(0);
+  const [voiceVerified, setVoiceVerified] = useState(false);
+  const [voiceDeclined, setVoiceDeclined] = useState(false);
+  const [voiceMediaRecorder, setVoiceMediaRecorder] = useState(null);
+  const [voiceInterval, setVoiceInterval] = useState(null);
   const [photoViewer, setPhotoViewer] = useState(null);
   const [photoCheckLoading, setPhotoCheckLoading] = useState(false);
   const [myPhotos, setMyPhotos] = useState([]);
-  const [msgMenu, setMsgMenu] = useState(null); // {chatId, idx}
+  const [msgMenu, setMsgMenu] = useState(null);
+  const [replyTo, setReplyTo] = useState(null);
   const [editingMsg, setEditingMsg] = useState(null); // {chatId, idx}
   const [editText, setEditText] = useState("");
   const [showGoFilter, setShowGoFilter] = useState(false);
   const [goGenderFilter, setGoGenderFilter] = useState("barchasi");
   const [goCityFilter, setGoCityFilter] = useState("Barchasi");
   const [goDistrictFilter, setGoDistrictFilter] = useState("Barchasi");
+  const [goMainTab, setGoMainTab] = useState("all");
+  const [goComments, setGoComments] = useState({}); // {invId: [{id, userId, name, photo, text, time}]}
+  const [goCommentInput, setGoCommentInput] = useState({}); // {invId: text}
+  const [showGoComments, setShowGoComments] = useState(null); // invId
   const [eventForm, setEventForm] = useState({title:"",type:"🎬 Kino",desc:"",date:"",time:"",location:"",audience:"barchasi",maxPeople:""});
   const [goFilter, setGoFilter] = useState("Barchasi");
 
@@ -886,10 +1053,21 @@ export default function App() {
   useEffect(() => { if(firstLoad){setFirstLoad(false);setTabHint("discover");} }, []);
   useEffect(() => { endRef.current?.scrollIntoView({behavior:"smooth"}); }, [chat, msgs]);
 
+  // Chat ochilganda kelgan xabarlarni "o'qildi" deb belgilash
+  useEffect(()=>{
+    if(!chat) return;
+    setMsgs(p=>({
+      ...p,
+      [chat]:(p[chat]||[]).map(m=>
+        m.from!=="me" && !m.read ? {...m, read:true} : m
+      )
+    }));
+  },[chat]);
+
   const checkTabHint = (tabKey) => { if(!seenTabs[tabKey] && TAB_HINTS[tabKey]) setTabHint(tabKey); };
   const toast$ = (msg, color=C.accent) => { setToast({msg,color}); setTimeout(()=>setToast(null),2500); };
 
-  const users = USERS.filter(u=>u.age>=ageF[0]&&u.age<=ageF[1]&&(cityF==="Barchasi"||u.city===cityF)&&(genderF==="Barchasi"||u.gender===genderF)&&!blocked.includes(u.id));
+  const users = ALL_USERS.filter(u=>u.age>=ageF[0]&&u.age<=ageF[1]&&(cityF==="Barchasi"||u.city===cityF)&&(genderF==="Barchasi"||u.gender===genderF)&&!blocked.includes(u.id));
   const cur = users[cardI % Math.max(users.length,1)];
 
   const like = id => {
@@ -920,14 +1098,23 @@ export default function App() {
   };
   const dislike = () => { setSwipe("left"); setTimeout(()=>{setSwipe(null);setCardI(p=>p+1);setCardMenu(null);},400); };
 
-  const send = txt => {
+  const send = useCallback(txt => {
     if(!txt.trim()) return;
     const {filtered,hasBad} = filterBadWords(txt);
     if(hasBad){setShowBadWordWarn(true);setInput(filtered);setTimeout(()=>setShowBadWordWarn(false),4000);return;}
     const t = new Date().toLocaleTimeString("uz",{hour:"2-digit",minute:"2-digit"});
     const msgId = crypto.randomUUID();
-    setMsgs(p=>({...p,[chat]:[...(p[chat]||[]),{id:msgId,from:"me",text:txt,time:t}]}));
-    setInput(""); setStickers(false); setMediaPanel(false);
+    const reply = replyTo;
+    setMsgs(p=>({...p,[chat]:[...(p[chat]||[]),{id:msgId,from:"me",text:txt,time:t,read:false,replyTo:reply||null}]}));
+    setInput(""); setStickers(false); setMediaPanel(false); setReplyTo(null);
+
+    // Demo: 3 soniyadan keyin "o'qildi" ✓✓
+    setTimeout(()=>{
+      setMsgs(p=>({
+        ...p,
+        [chat]:(p[chat]||[]).map(m=>m.id===msgId?{...m,read:true}:m)
+      }));
+    }, 3000);
 
     // Supabase ga saqlash
     if(sb && myUserId && chat) {
@@ -943,13 +1130,13 @@ export default function App() {
     }
 
     // Demo javob (faqat local users uchun)
-    if(USERS.find(u=>u.id===chat)) {
+    if(ALL_ALL_USERS.find(u=>u.id===chat)) {
       setTimeout(()=>{
         const rs=["😊","Zor!","Ha, albatta!","Qiziq…","Rahmat"];
         setMsgs(p=>({...p,[chat]:[...(p[chat]||[]),{from:"them",text:rs[Math.floor(Math.random()*rs.length)],time:new Date().toLocaleTimeString("uz",{hour:"2-digit",minute:"2-digit"})}]}));
       },1200);
     }
-  };
+  }, [chat, replyTo, myUserId, sb]);
 
   const sendGift = g => {
     if(coins<g.price){toast$("Tangalar yetarli emas!","#ef4444");return;}
@@ -986,8 +1173,8 @@ export default function App() {
     if(!navigator.geolocation){setLocationSharing(true);setNearbyUsers(DEMO_NEARBY.filter(u=>u.dist<=nearbyRadius));toast$("Demo lokatsiya",C.sky);}
   };
 
-  const chatUser = chat ? USERS.find(u=>u.id===chat) : null;
-  const matchUsers = USERS.filter(u=>matches.includes(u.id)&&!blocked.includes(u.id));
+  const chatUser = useMemo(()=>chat ? ALL_USERS.find(u=>u.id===chat) : null, [chat]);
+  const matchUsers = useMemo(()=>ALL_USERS.filter(u=>matches.includes(u.id)&&!blocked.includes(u.id)), [matches, blocked, ALL_USERS]);
 
   const ov = {position:"fixed",top:0,left:0,width:"100%",height:"100%",background:"rgba(0,0,0,0.55)",backdropFilter:"blur(4px)",zIndex:300,display:"flex",alignItems:"flex-end",justifyContent:"center"};
   const mb = {background:"#fff",borderRadius:"20px 20px 0 0",padding:20,width:"100%",maxWidth:430,boxShadow:"0 -8px 32px rgba(255,110,180,0.15)",maxHeight:"88vh",overflowY:"auto"};
@@ -996,7 +1183,7 @@ export default function App() {
 
   return (
     <div style={{background:C.bg,minHeight:"100vh",fontFamily:"Nunito,sans-serif",color:C.text,maxWidth:430,margin:"0 auto",position:"relative",overflow:"hidden"}}>
-      <style>{`@import url("https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap"); *{box-sizing:border-box;margin:0;padding:0} ::-webkit-scrollbar{width:3px} ::-webkit-scrollbar-thumb{background:#ff6eb455;border-radius:3px} @keyframes slideUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}} @keyframes bounceHeart{from{transform:scale(1)}to{transform:scale(1.2)}} @keyframes radar{from{transform:rotate(0deg)}to{transform:rotate(360deg)}} @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}} .rng::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;border-radius:50%;background:linear-gradient(135deg,#ff6eb4,#38bdf8);cursor:pointer;border:3px solid #fff;box-shadow:0 2px 8px #ff6eb455} .rng::-webkit-slider-runnable-track{height:4px;background:transparent}`}</style>
+      <style>{`@import url("https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap"); *{box-sizing:border-box;margin:0;padding:0} input,textarea,select{font-size:16px!important} ::-webkit-scrollbar{width:3px} ::-webkit-scrollbar-thumb{background:#ff6eb455;border-radius:3px} @keyframes slideUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}} @keyframes bounceHeart{from{transform:scale(1)}to{transform:scale(1.2)}} @keyframes radar{from{transform:rotate(0deg)}to{transform:rotate(360deg)}} @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}} .rng::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;border-radius:50%;background:linear-gradient(135deg,#ff6eb4,#38bdf8);cursor:pointer;border:3px solid #fff;box-shadow:0 2px 8px #ff6eb455} .rng::-webkit-slider-runnable-track{height:4px;background:transparent} @viewport{zoom:1.0;width:device-width}`}</style>
 
       {/* Hidden inputs */}
       <input ref={fileRef} type="file" style={{display:"none"}} onChange={e=>{
@@ -1052,7 +1239,7 @@ export default function App() {
           }
         } catch(err) {
           // AI xato bersa, rasmni qabul qil (network yoq holatida)
-          console.log("AI check skipped:",err);
+          console.error("AI check:",err);
         }
 
         setPhotoCheckLoading(false);
@@ -1134,7 +1321,7 @@ export default function App() {
       )}
 
       {/* INCOMING GIFT */}
-      {incomingGift&&(
+      {incomingGift&&notifSettings.gifts&&(
         <div style={{position:"fixed",top:0,left:0,width:"100%",height:"100%",background:"rgba(0,0,0,0.85)",zIndex:500,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
           <div style={{background:"#fff",borderRadius:28,padding:26,width:"100%",maxWidth:380,textAlign:"center"}}>
             <div style={{fontSize:90,marginBottom:8,animation:"bounceHeart 0.5s infinite alternate"}}>{incomingGift.gift.emoji}</div>
@@ -1267,11 +1454,35 @@ export default function App() {
                 : <button onClick={()=>complaintFileRef.current.click()} style={{background:"#fff5f5",border:"2px dashed #fca5a5",borderRadius:12,padding:"10px 18px",color:"#ef4444",fontSize:12,fontWeight:600,cursor:"pointer"}}>📸 Skrinshot qoshish</button>
               }
             </div>
-            <button onClick={()=>{
+            <button onClick={async ()=>{
               if(!complaintReason){toast$("Sabab tanlang!","#ef4444");return;}
               if(!complaintText.trim()){toast$("Tavsif yozing!","#ef4444");return;}
+
+              // Supabase ga saqlash
+              if(sb && myUserId){
+                try{
+                  await sb.from('complaints').insert({
+                    reporter_id: myUserId,
+                    reported_id: showComplaintModal.id,
+                    reported_name: showComplaintModal.name,
+                    reason: complaintReason,
+                    description: complaintText,
+                    status: 'pending',
+                    created_at: new Date().toISOString()
+                  });
+                }catch(e){console.error('Complaint save error:',e);}
+              }
+
               setComplaintSent(true);
-              setTimeout(()=>{setComplaintSent(false);setShowComplaintModal(null);setComplaintText("");setComplaintReason("");setComplaintScreenshot(null);},3500);
+              // Avtomatik bloklash
+              blockUser(showComplaintModal.id, showComplaintModal.name, "full");
+              setTimeout(()=>{
+                setComplaintSent(false);
+                setShowComplaintModal(null);
+                setComplaintText("");
+                setComplaintReason("");
+                setComplaintScreenshot(null);
+              },4000);
             }} style={bigBtn("linear-gradient(90deg,#ef4444,#dc2626)")}>🚨 Shikoyat yuborish</button>
             <button onClick={()=>{setShowComplaintModal(null);setComplaintText("");setComplaintReason("");}} style={{...bigBtn("#e0f2fe"),color:C.text}}>Bekor qilish</button>
           </div>
@@ -1280,30 +1491,126 @@ export default function App() {
 
       {/* COMPLAINT SUCCESS */}
       {complaintSent&&(
-        <div style={{position:"fixed",top:0,left:0,width:"100%",height:"100%",background:"linear-gradient(135deg,#fff0f6,#e0f2fe)",zIndex:900,display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
-          <div style={{textAlign:"center"}}>
-            <div style={{fontSize:80,marginBottom:16,animation:"bounceHeart 0.5s infinite alternate"}}>❤️</div>
-            <div style={{fontWeight:900,fontSize:22,color:C.accent,marginBottom:12}}>Rahmat!</div>
-            <div style={{fontSize:14,color:C.text,lineHeight:1.6,background:"#fff",borderRadius:20,padding:"20px 24px",maxWidth:320}}>{T.complaintSent}</div>
+        <div style={{position:"fixed",top:0,left:0,width:"100%",height:"100%",background:"linear-gradient(135deg,#fff5f5,#fff0f6)",zIndex:900,display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
+          <div style={{textAlign:"center",maxWidth:320}}>
+            <div style={{fontSize:72,marginBottom:12}}>✅</div>
+            <div style={{fontWeight:900,fontSize:22,color:"#dc2626",marginBottom:12}}>Shikoyat yuborildi!</div>
+            <div style={{background:"#fff",borderRadius:20,padding:"20px 24px",marginBottom:16,border:"1px solid #fecaca"}}>
+              <div style={{fontSize:13,color:C.text,lineHeight:1.7}}>
+                {T.complaintSent}
+              </div>
+            </div>
+            <div style={{display:"flex",flexDirection:"column",gap:8,fontSize:12,color:C.muted}}>
+              <div style={{display:"flex",alignItems:"center",gap:8,background:"#fff",borderRadius:12,padding:"10px 14px",border:"1px solid "+C.border}}>
+                <span style={{fontSize:16}}>🚫</span>
+                <span>Foydalanuvchi avtomatik bloklandi</span>
+              </div>
+              <div style={{display:"flex",alignItems:"center",gap:8,background:"#fff",borderRadius:12,padding:"10px 14px",border:"1px solid "+C.border}}>
+                <span style={{fontSize:16}}>👮</span>
+                <span>Administrator 24 soat ichida ko'rib chiqadi</span>
+              </div>
+              <div style={{display:"flex",alignItems:"center",gap:8,background:"#fff",borderRadius:12,padding:"10px 14px",border:"1px solid "+C.border}}>
+                <span style={{fontSize:16}}>🛡️</span>
+                <span>Sizning ma'lumotlaringiz maxfiy</span>
+              </div>
+            </div>
           </div>
         </div>
       )}
 
-      {/* LANG MODAL */}
+
+      {/* BILDIRISHNOMALAR SOZLAMALARI — endi Sozlamalar ichida */}
+
+      {/* SOZLAMALAR TO'LIQ SAHIFASI */}
       {showLangModal&&(
-        <div style={{position:"fixed",top:0,left:0,width:"100%",height:"100%",background:"rgba(0,0,0,0.6)",backdropFilter:"blur(6px)",zIndex:700,display:"flex",alignItems:"center",justifyContent:"center",padding:20}} onClick={()=>setShowLangModal(false)}>
-          <div style={{background:"#fff",borderRadius:24,padding:24,width:"100%",maxWidth:360}} onClick={e=>e.stopPropagation()}>
-            <div style={{fontWeight:900,fontSize:18,textAlign:"center",marginBottom:18}}>🌐 {T.langTitle}</div>
-            {Object.entries(LANGS).map(([key,l])=>(
-              <div key={key} onClick={()=>{setLang(key);setShowLangModal(false);toast$("Til ozgartirildi!",C.green);}} style={{display:"flex",alignItems:"center",gap:14,padding:"14px 16px",borderRadius:16,marginBottom:8,border:"2px solid "+(lang===key?C.accent:C.border),background:lang===key?"linear-gradient(135deg,#fff0f6,#e0f2fe)":"#f8fafc",cursor:"pointer"}}>
-                <div style={{width:44,height:44,borderRadius:12,background:lang===key?"linear-gradient(135deg,#ff6eb4,#38bdf8)":"#e0f2fe",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:900,fontSize:14,color:lang===key?"#fff":C.text,flexShrink:0}}>{l.flag}</div>
-                <div style={{flex:1,fontWeight:800,fontSize:14,color:lang===key?C.accent:C.text}}>
-                  {key==="uz"?"🇺🇿 O'zbek tili (Lotin)":key==="kir"?"🇺🇿 Ўзбек тили (Кирилл)":"🇷🇺 Русский язык"}
+        <div style={{position:"fixed",top:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:430,height:"100vh",background:C.bg,zIndex:700,display:"flex",flexDirection:"column"}}>
+          {/* Header */}
+          <div style={{background:"linear-gradient(135deg,#6366f1,#8b5cf6)",padding:"16px 18px",display:"flex",alignItems:"center",gap:12,flexShrink:0}}>
+            <button onClick={()=>setShowLangModal(false)} style={{background:"rgba(255,255,255,0.2)",border:"none",borderRadius:"50%",width:34,height:34,color:"#fff",fontSize:18,cursor:"pointer"}}>←</button>
+            <div style={{flex:1}}>
+              <div style={{color:"#fff",fontWeight:900,fontSize:18}}>⚙️ Sozlamalar</div>
+              <div style={{color:"rgba(255,255,255,0.6)",fontSize:11,marginTop:1}}>Til va bildirishnomalar</div>
+            </div>
+          </div>
+
+          <div style={{flex:1,overflowY:"auto",padding:"16px 14px 30px"}}>
+
+            {/* === TIL === */}
+            <div style={{fontWeight:900,fontSize:15,color:C.text,marginBottom:10,display:"flex",alignItems:"center",gap:8}}>
+              <span style={{fontSize:18}}>🌐</span> Tilni o'zgartirish
+            </div>
+            <div style={{marginBottom:20}}>
+              {Object.entries(LANGS).map(([key,l])=>(
+                <div key={key} onClick={()=>{setLang(key);toast$("Til o'zgartirildi!",C.green);}} style={{
+                  display:"flex",alignItems:"center",gap:14,padding:"14px 16px",
+                  borderRadius:16,marginBottom:8,
+                  border:"2px solid "+(lang===key?C.accent:C.border),
+                  background:lang===key?"linear-gradient(135deg,#fff0f6,#e0f2fe)":"#fff",
+                  cursor:"pointer"
+                }}>
+                  <div style={{width:44,height:44,borderRadius:12,background:lang===key?"linear-gradient(135deg,#ff6eb4,#38bdf8)":"#e0f2fe",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:900,fontSize:14,color:lang===key?"#fff":C.text,flexShrink:0}}>{l.flag}</div>
+                  <div style={{flex:1,fontWeight:800,fontSize:14,color:lang===key?C.accent:C.text}}>
+                    {key==="uz"?"🇺🇿 O'zbek tili (Lotin)":key==="kir"?"🇺🇿 Ўзбек тили (Кирилл)":"🇷🇺 Русский язык"}
+                  </div>
+                  {lang===key&&<span style={{fontSize:18}}>✅</span>}
                 </div>
-                {lang===key&&<span style={{fontSize:18}}>✅</span>}
+              ))}
+            </div>
+
+            {/* Ajratuvchi */}
+            <div style={{height:1,background:C.border,marginBottom:20}}/>
+
+            {/* === BILDIRISHNOMALAR === */}
+            <div style={{fontWeight:900,fontSize:15,color:C.text,marginBottom:10,display:"flex",alignItems:"center",gap:8}}>
+              <span style={{fontSize:18}}>🔔</span> Bildirishnomalarni boshqarish
+            </div>
+            <div style={{marginBottom:8}}>
+              {[
+                {key:"likes",   icon:"❤️", label:"Sizni yoqtirdi",       sub:"Kimdir ❤️ bossa xabar keladi"},
+                {key:"views",   icon:"👁️", label:"Profilingizni ko'rdi",  sub:"Kimdir profilingizga kirsa"},
+                {key:"gifts",   icon:"🎁", label:"Sovga yubordi",         sub:"Kimdir sovga yuborsa"},
+                {key:"messages",icon:"💬", label:"Yangi xabar",           sub:"Kimdir xabar yozsa"},
+                {key:"matches", icon:"🎉", label:"Yangi match",           sub:"O'zaro yoqtirish bo'lsa"},
+                {key:"blocks",  icon:"🚫", label:"Sizni blokladi",        sub:"Kimdir sizni bloklasa"},
+              ].map(item=>(
+                <div key={item.key} style={{
+                  background:"#fff",borderRadius:16,padding:"13px 16px",
+                  marginBottom:8,border:"1px solid "+C.border,
+                  display:"flex",alignItems:"center",gap:12
+                }}>
+                  <div style={{
+                    width:40,height:40,borderRadius:12,flexShrink:0,
+                    background:notifSettings[item.key]?"#fff0f6":"#f1f5f9",
+                    display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,
+                    border:"1px solid "+(notifSettings[item.key]?C.accent:C.border)
+                  }}>{item.icon}</div>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontWeight:700,fontSize:13,color:C.text}}>{item.label}</div>
+                    <div style={{fontSize:11,color:C.muted,marginTop:1}}>{item.sub}</div>
+                  </div>
+                  {/* Toggle */}
+                  <div onClick={()=>setNotifSettings(p=>({...p,[item.key]:!p[item.key]}))} style={{
+                    width:48,height:26,borderRadius:13,flexShrink:0,
+                    background:notifSettings[item.key]?"linear-gradient(135deg,#ff6eb4,#38bdf8)":"#e2e8f0",
+                    position:"relative",cursor:"pointer",transition:"background 0.3s"
+                  }}>
+                    <div style={{
+                      position:"absolute",top:3,
+                      left:notifSettings[item.key]?24:3,
+                      width:20,height:20,borderRadius:"50%",
+                      background:"#fff",boxShadow:"0 2px 6px rgba(0,0,0,0.2)",
+                      transition:"left 0.3s"
+                    }}/>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{background:"#f8fafc",borderRadius:12,padding:"10px 14px",border:"1px solid "+C.border}}>
+              <div style={{fontSize:10,color:C.muted,textAlign:"center"}}>
+                🔔 O'chirilgan bildirishnomalar Supabase da saqlanib qoladi
               </div>
-            ))}
-            <button onClick={()=>setShowLangModal(false)} style={{...bigBtn("#e0f2fe"),color:C.text}}>{T.cancel}</button>
+            </div>
           </div>
         </div>
       )}
@@ -1532,10 +1839,666 @@ export default function App() {
         </div>
       )}
 
+      {/* SEEKING / VOICE KENGAYTIRILGAN MODAL */}
+      {detailExpandModal&&showUserDetail&&(
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.7)",zIndex:500,display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={()=>setDetailExpandModal(null)}>
+          <div style={{background:"#fff",borderRadius:"24px 24px 0 0",width:"100%",maxWidth:430,padding:"24px 20px 40px"}} onClick={e=>e.stopPropagation()}>
+            {/* Handle */}
+            <div style={{width:40,height:4,borderRadius:2,background:C.border,margin:"0 auto 20px"}}/>
+
+            {detailExpandModal==="seeking"&&(
+              <>
+                <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:16}}>
+                  <div style={{width:40,height:40,borderRadius:12,background:"#fff0f6",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20}}>🔍</div>
+                  <div>
+                    <div style={{fontWeight:800,fontSize:16,color:C.text}}>Kimni qidirmoqda</div>
+                    <div style={{fontSize:12,color:C.muted}}>{showUserDetail.name?.split(" ")[0]}</div>
+                  </div>
+                </div>
+                <div style={{fontSize:14,color:C.text,lineHeight:1.8,background:"#f8fafc",borderRadius:14,padding:"14px 16px"}}>
+                  {showUserDetail.seeking}
+                </div>
+              </>
+            )}
+
+            {detailExpandModal==="voice"&&(()=>{
+              const isMe = showUserDetail.id === myUserId;
+              const src = isMe ? (voiceBlob ? URL.createObjectURL(voiceBlob) : null) : showUserDetail.voiceUrl;
+              const verified = isMe ? voiceVerified : showUserDetail.voiceVerified;
+              return (
+                <>
+                  <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:16}}>
+                    <div style={{width:40,height:40,borderRadius:12,background:"#f0fdf4",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20}}>🎙️</div>
+                    <div style={{flex:1}}>
+                      <div style={{fontWeight:800,fontSize:16,color:C.text}}>Ovozli xabar</div>
+                      <div style={{fontSize:12,color:C.muted}}>{showUserDetail.name?.split(" ")[0]}</div>
+                    </div>
+                    {verified&&<div style={{background:"#22c55e",borderRadius:20,padding:"3px 12px",fontSize:11,fontWeight:700,color:"#fff"}}>✅ Tasdiqlangan</div>}
+                  </div>
+                  {src&&(
+                    <audio
+                      src={src}
+                      controls
+                      autoPlay
+                      style={{width:"100%",height:48,borderRadius:12}}
+                      controlsList="nodownload"
+                      onContextMenu={e=>e.preventDefault()}
+                    />
+                  )}
+                  <div style={{marginTop:10,fontSize:11,color:C.muted,textAlign:"center"}}>
+                    🔒 Ovozni yuklab olish taqiqlangan
+                  </div>
+                </>
+              );
+            })()}
+
+            <button onClick={()=>setDetailExpandModal(null)} style={{
+              width:"100%",marginTop:16,padding:"12px",
+              borderRadius:14,background:"#f1f5f9",
+              border:"none",fontWeight:700,fontSize:14,
+              color:C.text,cursor:"pointer"
+            }}>Yopish</button>
+          </div>
+        </div>
+      )}
+
+      {/* GO KAMMENT MODALI */}
+      {showGoComments&&(()=>{
+        const inv = goInvites.find(i=>i.id===showGoComments);
+        if(!inv) return null;
+        const comments = goComments[inv.id]||[];
+        const isOwner = inv.mine || String(inv.userId)===String(myUserId);
+        const inputVal = goCommentInput[inv.id]||"";
+
+        return (
+          <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",zIndex:600,display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={()=>setShowGoComments(null)}>
+            <div style={{background:"#fff",borderRadius:"24px 24px 0 0",width:"100%",maxWidth:430,maxHeight:"75vh",display:"flex",flexDirection:"column"}} onClick={e=>e.stopPropagation()}>
+              {/* Header */}
+              <div style={{padding:"16px 18px",borderBottom:"1px solid "+C.border,display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0}}>
+                <div>
+                  <div style={{fontWeight:800,fontSize:15}}>💬 Kammentlar</div>
+                  <div style={{fontSize:11,color:C.muted,marginTop:2}}>{inv.text?.slice(0,40)}...</div>
+                </div>
+                <button onClick={()=>setShowGoComments(null)} style={{background:"#f1f5f9",border:"none",borderRadius:"50%",width:32,height:32,cursor:"pointer",fontSize:16,color:C.muted}}>✕</button>
+              </div>
+
+              {/* Kammentlar ro'yxati */}
+              <div style={{flex:1,overflowY:"auto",padding:"12px 16px"}}>
+                {comments.length===0&&(
+                  <div style={{textAlign:"center",padding:"30px",color:C.muted}}>
+                    <div style={{fontSize:32,marginBottom:8}}>💬</div>
+                    <div style={{fontSize:13}}>Hali kamment yo'q. Birinchi bo'ling!</div>
+                  </div>
+                )}
+                {comments.map((c,i)=>(
+                  <div key={c.id} style={{display:"flex",gap:10,marginBottom:14,alignItems:"flex-start"}}>
+                    <div style={{width:36,height:36,borderRadius:"50%",overflow:"hidden",flexShrink:0,border:"1.5px solid "+C.border}}>
+                      {c.photo?<img src={c.photo} style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<div style={{width:"100%",height:"100%",background:C.accent+"22",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16}}>👤</div>}
+                    </div>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:3}}>
+                        <span style={{fontWeight:700,fontSize:13}}>{c.name}</span>
+                        <span style={{fontSize:10,color:C.muted}}>{c.time}</span>
+                      </div>
+                      <div style={{background:"#f8fafc",borderRadius:"4px 14px 14px 14px",padding:"8px 12px",fontSize:13,color:C.text,lineHeight:1.5}}>{c.text}</div>
+                      {/* Egasi uchun tugmalar */}
+                      {isOwner&&(
+                        <div style={{display:"flex",gap:8,marginTop:5}}>
+                          <button onClick={()=>{
+                            const reply = `@${c.name} `;
+                            setGoCommentInput(p=>({...p,[inv.id]:reply}));
+                          }} style={{background:"none",border:"none",fontSize:11,color:C.accent,fontWeight:700,cursor:"pointer"}}>↩️ Javob</button>
+                          <button onClick={()=>{
+                            setGoComments(p=>({...p,[inv.id]:(p[inv.id]||[]).filter(x=>x.id!==c.id)}));
+                            toast$("Kamment o'chirildi","#ef4444");
+                          }} style={{background:"none",border:"none",fontSize:11,color:"#ef4444",fontWeight:700,cursor:"pointer"}}>🗑️ O'chirish</button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Input */}
+              <div style={{padding:"10px 14px",borderTop:"1px solid "+C.border,display:"flex",gap:8,alignItems:"flex-end",flexShrink:0}}>
+                <div style={{flex:1,background:"#f1f5f9",borderRadius:20,padding:"8px 14px"}}>
+                  <textarea
+                    value={inputVal}
+                    onChange={e=>setGoCommentInput(p=>({...p,[inv.id]:e.target.value}))}
+                    placeholder="Kamment yozing..."
+                    rows={1}
+                    style={{width:"100%",background:"transparent",border:"none",outline:"none",fontSize:14,resize:"none",fontFamily:"inherit",color:C.text}}
+                  />
+                </div>
+                <button onClick={()=>{
+                  if(!inputVal.trim()) return;
+                  const newC = {
+                    id:Date.now(),
+                    userId:myUserId,
+                    name:(profile?.name||"Men").split(" ")[0],
+                    photo:profilePhoto||null,
+                    text:inputVal.trim(),
+                    time:new Date().toLocaleTimeString("uz",{hour:"2-digit",minute:"2-digit"})
+                  };
+                  setGoComments(p=>({...p,[inv.id]:[...(p[inv.id]||[]),newC]}));
+                  setGoCommentInput(p=>({...p,[inv.id]:""}));
+                }} style={{
+                  width:40,height:40,borderRadius:"50%",
+                  background:inputVal.trim()?"linear-gradient(135deg,#ff6eb4,#38bdf8)":"#e2e8f0",
+                  border:"none",cursor:"pointer",color:"#fff",fontSize:18,
+                  display:"flex",alignItems:"center",justifyContent:"center"
+                }}>➤</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* GO QO'SHILISH SO'ROVI MODALI */}
+      {showGoRequestModal&&(
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.7)",zIndex:800,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+          <div style={{background:"#fff",borderRadius:24,padding:24,width:"100%",maxWidth:360}}>
+            {/* Avatar — bosilsa profil ochiladi */}
+            <div style={{textAlign:"center",marginBottom:16}}>
+              <div
+                onClick={()=>{
+                  const joiner = ALL_USERS[0];
+                  if(joiner){setShowUserDetail(joiner);setDetailPhotoIdx(0);}
+                }}
+                style={{cursor:"pointer",display:"inline-block"}}
+              >
+                <div style={{width:72,height:72,borderRadius:"50%",overflow:"hidden",margin:"0 auto 8px",border:"3px solid "+C.accent,boxShadow:"0 4px 16px rgba(255,110,180,0.3)"}}>
+                  {ALL_USERS[0]?.demoPhoto
+                    ? <img src={USERS[0].demoPhoto} style={{width:"100%",height:"100%",objectFit:"cover"}}/>
+                    : <div style={{width:"100%",height:"100%",background:"#fff0f6",display:"flex",alignItems:"center",justifyContent:"center",fontSize:28}}>👤</div>
+                  }
+                </div>
+                <div style={{fontWeight:900,fontSize:15,color:C.accent,textDecoration:"underline dotted"}}>
+                  {ALL_USERS[0]?.name?.split(" ")[0]} →
+                </div>
+                <div style={{fontSize:11,color:C.muted,marginTop:2}}>
+                  Profilni ko'rish uchun bosing
+                </div>
+              </div>
+            </div>
+
+            {/* Xabar */}
+            <div style={{background:"#f0fdf4",borderRadius:14,padding:"14px 16px",marginBottom:20,textAlign:"center",border:"1px solid #86efac"}}>
+              <div style={{fontSize:28,marginBottom:8}}>🎉</div>
+              <div style={{fontWeight:700,fontSize:14,color:"#1e293b",lineHeight:1.6}}>
+                <b>{USERS[0]?.name?.split(" ")[0]}</b> siz bilan{" "}
+                <span style={{color:C.accent}}>"{showGoRequestModal.inv?.text?.slice(0,30)}..."</span>{" "}
+                ga bormoqchi va sizga shaxsiy xabar yozmoqchi.
+              </div>
+              <div style={{fontSize:12,color:"#64748b",marginTop:8}}>Ruxsat berasizmi?</div>
+            </div>
+
+            {/* Tugmalar */}
+            <div style={{display:"flex",gap:10}}>
+              <button onClick={()=>{
+                setShowGoRequestModal(null);
+                const joiner = USERS[0];
+                if(joiner){
+                  const t2 = new Date().toLocaleTimeString("uz",{hour:"2-digit",minute:"2-digit"});
+                  setMsgs(p=>({...p,[joiner.id]:[...(p[joiner.id]||[]),
+                    {from:"them",text:"❌ Kechirasiz, taklifingizni rad etdim. Boshqa hamroh qidiring 🙏",time:t2}
+                  ]}));
+                }
+                toast$("❌ Rad etildi","#ef4444");
+              }} style={{flex:1,padding:"12px",borderRadius:14,background:"#fff5f5",border:"1px solid #fecaca",color:"#ef4444",fontWeight:700,fontSize:14,cursor:"pointer"}}>
+                ❌ Rad etish
+              </button>
+              <button onClick={()=>{
+                const inv = showGoRequestModal.inv;
+                const joiner = USERS[0];
+                setShowGoRequestModal(null);
+                // Match qo'shish — chat ochiladi
+                if(joiner) {
+                  setMatches(p=>p.includes(joiner.id)?p:[...p,joiner.id]);
+                  const t2 = new Date().toLocaleTimeString("uz",{hour:"2-digit",minute:"2-digit"});
+                  setMsgs(p=>({...p,[joiner.id]:[...(p[joiner.id]||[]),
+                    {from:"them",text:"🎉 Salom! Men "+inv?.text?.slice(0,20)+"... ga bormoqchiman. Birgami? 😊",time:t2}
+                  ]}));
+                  toast$("🎉 Ruxsat berildi! Endi xabar yozishingiz mumkin","#22c55e");
+                  // Lichkaga o'tish
+                  setTimeout(()=>{setTab("matches");},1000);
+                }
+              }} style={{flex:1,padding:"12px",borderRadius:14,background:"linear-gradient(135deg,#22c55e,#16a34a)",border:"none",color:"#fff",fontWeight:700,fontSize:14,cursor:"pointer"}}>
+                ✅ Ruxsat berish
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TELEGRAM SO'ROV MODALI */}
+      {showTgModal&&(
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.7)",zIndex:800,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+          <div style={{background:"#fff",borderRadius:24,padding:24,width:"100%",maxWidth:360}}>
+            {/* Avatar */}
+            <div style={{textAlign:"center",marginBottom:16}}>
+              <div style={{width:70,height:70,borderRadius:"50%",overflow:"hidden",margin:"0 auto 10px",border:"3px solid #0088cc"}}>
+                {showTgModal.demoPhoto
+                  ? <img src={showTgModal.demoPhoto} style={{width:"100%",height:"100%",objectFit:"cover"}}/>
+                  : <div style={{width:"100%",height:"100%",background:"#e0f2fe",display:"flex",alignItems:"center",justifyContent:"center",fontSize:32}}>{showTgModal.emoji}</div>
+                }
+              </div>
+              <div style={{fontWeight:900,fontSize:16,color:"#1e293b"}}>{showTgModal.name.split(" ")[0]}</div>
+            </div>
+
+            {/* Xabar */}
+            <div style={{background:"#f0f9ff",borderRadius:14,padding:"14px 16px",marginBottom:20,textAlign:"center"}}>
+              <div style={{fontSize:28,marginBottom:8}}>✈️</div>
+              <div style={{fontWeight:700,fontSize:14,color:"#1e293b",lineHeight:1.6}}>
+                <b>{showTgModal.name.split(" ")[0]}</b> suhbatni bu yerda emas,{" "}
+                <span style={{color:"#0088cc"}}>Telegram</span> orqali davom ettirmoqchi.
+              </div>
+              <div style={{fontSize:13,color:"#64748b",marginTop:8}}>
+                Unga Telegram orqali yozishiga ruxsat berasizmi?
+              </div>
+              <div style={{marginTop:8,fontSize:11,color:"#94a3b8"}}>
+                🔒 Faqat siz ruxsat bersangiz ulanish ochiladi
+              </div>
+            </div>
+
+            {/* Tugmalar */}
+            <div style={{display:"flex",gap:10}}>
+              <button onClick={()=>{
+                setTgRequests(p=>({...p,[showTgModal.id]:"rejected"}));
+                // Chatda xabar qoldirish
+                const t2 = new Date().toLocaleTimeString("uz",{hour:"2-digit",minute:"2-digit"});
+                setMsgs(p=>({...p,[showTgModal.id]:[...(p[showTgModal.id]||[]),
+                  {from:"them",text:"❌ Telegram taklifingizni rad etdim. Suhbatni shu yerda davom ettiring yoki 🎁 sovga yuborib qaytadan urining.",time:t2}
+                ]}));
+                setShowTgModal(null);
+                toast$("Taklif rad etildi","#ef4444");
+              }} style={{
+                flex:1,padding:"12px",borderRadius:14,
+                background:"#fff5f5",border:"1px solid #fecaca",
+                color:"#ef4444",fontWeight:700,fontSize:14,cursor:"pointer"
+              }}>❌ Rad etish</button>
+
+              <button onClick={()=>{
+                setTgRequests(p=>({...p,[showTgModal.id]:"accepted"}));
+                const _u=showTgModal; const _link=_u.tgUsername?"https://t.me/"+_u.tgUsername:_u.tgUserId?"tg://user?id="+_u.tgUserId:null; if(_link)window.Telegram?.WebApp?.openTelegramLink?.(_link)||window.open(_link,"_blank");
+                setShowTgModal(null);
+                toast$("✅ Ruxsat berildi! Telegram ochilmoqda...","#0088cc");
+              }} style={{
+                flex:1,padding:"12px",borderRadius:14,
+                background:"linear-gradient(135deg,#0088cc,#006699)",
+                border:"none",color:"#fff",fontWeight:700,fontSize:14,cursor:"pointer"
+              }}>✅ Ruxsat berish</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* RASM QO'SHISH OGOHLANTIRISIH */}
+      {showPhotoWarning&&(
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",zIndex:900,display:"flex",alignItems:"flex-end",justifyContent:"center"}}>
+          <div style={{background:"#fff",borderRadius:"24px 24px 0 0",width:"100%",maxWidth:430,padding:"24px 20px 36px"}}>
+            <div style={{width:40,height:4,borderRadius:2,background:"#e2e8f0",margin:"0 auto 20px"}}/>
+            <div style={{textAlign:"center",marginBottom:16}}>
+              <div style={{fontSize:40,marginBottom:8}}>🚫</div>
+              <div style={{fontWeight:900,fontSize:18,color:"#dc2626",marginBottom:4}}>Taqiqlangan rasmlar</div>
+              <div style={{fontSize:12,color:C.muted}}>Quyidagi rasmlarni joylash taqiqlangan</div>
+            </div>
+            <div style={{background:"#fef2f2",borderRadius:16,padding:"16px",marginBottom:20,border:"1px solid #fecaca"}}>
+              {[
+                {icon:"🔞",text:"Intim va yalang'och suratlar"},
+                {icon:"👙",text:"O'ta ochiq kiyimdagi rasmlar"},
+                {icon:"💋",text:"Fahsh holat yoki imo-ishoralar"},
+                {icon:"🤳",text:"Boshqa odamning rasmi"},
+              ].map((item,i)=>(
+                <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderBottom:i<3?"1px solid #fecaca":"none"}}>
+                  <span style={{fontSize:20,flexShrink:0}}>{item.icon}</span>
+                  <span style={{fontSize:13,color:"#dc2626",fontWeight:600}}>{item.text}</span>
+                </div>
+              ))}
+            </div>
+            <button onClick={()=>{
+              setShowPhotoWarning(false);
+              profilePhotoRef.current.click();
+            }} style={{
+              width:"100%",padding:"14px",borderRadius:16,
+              background:"linear-gradient(135deg,#ff6eb4,#38bdf8)",
+              border:"none",color:"#fff",fontWeight:900,fontSize:16,cursor:"pointer"
+            }}>✅ Tushunarli, rasm qo'shish</button>
+          </div>
+        </div>
+      )}
+
+      {/* ADMIN PANEL */}
+      {showAdminPanel&&(
+        <div style={{position:"fixed",top:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:430,height:"100vh",background:C.bg,zIndex:1000,display:"flex",flexDirection:"column"}}>
+
+          {/* PAROL KIRISH */}
+          {!adminAuth&&(
+            <div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
+              <div style={{background:"#fff",borderRadius:24,padding:28,width:"100%",textAlign:"center",boxShadow:"0 8px 32px rgba(124,58,237,0.15)"}}>
+                <div style={{fontSize:48,marginBottom:12}}>🔐</div>
+                <div style={{fontWeight:900,fontSize:20,color:"#7c3aed",marginBottom:4}}>Admin Panel</div>
+                <div style={{fontSize:12,color:C.muted,marginBottom:20}}>Faqat administrator uchun</div>
+                <input
+                  type="text"
+                  value={adminLogin}
+                  onChange={e=>setAdminLogin(e.target.value)}
+                  placeholder="Login..."
+                  style={{width:"100%",background:"#f5f3ff",border:"2px solid #7c3aed33",borderRadius:14,padding:"12px 16px",fontSize:16,outline:"none",boxSizing:"border-box",marginBottom:10,textAlign:"center"}}
+                />
+                <input
+                  type="password"
+                  value={adminPwd}
+                  onChange={e=>setAdminPwd(e.target.value)}
+                  placeholder="Parol..."
+                  onKeyDown={e=>{if(e.key==="Enter"){if(adminLogin===ADMIN_LOGIN&&adminPwd===ADMIN_PASSWORD){setAdminAuth(true);setAdminPwd("");setAdminLogin("");}else{toast$("Login yoki parol noto'g'ri!","#ef4444");setAdminPwd("");}}}}
+                  style={{width:"100%",background:"#f5f3ff",border:"2px solid #7c3aed33",borderRadius:14,padding:"12px 16px",fontSize:16,outline:"none",boxSizing:"border-box",marginBottom:12,textAlign:"center",letterSpacing:4}}
+                />
+                <button onClick={()=>{
+                  if(adminLogin===ADMIN_LOGIN&&adminPwd===ADMIN_PASSWORD){setAdminAuth(true);setAdminPwd("");setAdminLogin("");}
+                  else{toast$("Login yoki parol noto'g'ri!","#ef4444");setAdminPwd("");}
+                }} style={{width:"100%",padding:"13px",borderRadius:14,background:"linear-gradient(135deg,#7c3aed,#6d28d9)",border:"none",color:"#fff",fontWeight:800,fontSize:15,cursor:"pointer",marginBottom:10}}>
+                  Kirish →
+                </button>
+                <button onClick={()=>{setShowAdminPanel(false);setAdminPwd("");setAdminLogin("");}} style={{background:"none",border:"none",color:C.muted,fontSize:13,cursor:"pointer"}}>Bekor qilish</button>
+              </div>
+            </div>
+          )}
+
+          {/* ADMIN CONTENT */}
+          {adminAuth&&(
+            <>
+              {/* Header */}
+              <div style={{background:"linear-gradient(135deg,#7c3aed,#6d28d9)",padding:"14px 18px",display:"flex",alignItems:"center",gap:12,flexShrink:0}}>
+                <button onClick={()=>{setShowAdminPanel(false);setAdminAuth(false);setAdminSelectedUser(null);}} style={{background:"rgba(255,255,255,0.2)",border:"none",borderRadius:"50%",width:34,height:34,color:"#fff",fontSize:18,cursor:"pointer"}}>←</button>
+                <div style={{flex:1}}>
+                  <div style={{color:"#fff",fontWeight:900,fontSize:17}}>🔐 Admin Panel</div>
+                  <div style={{color:"rgba(255,255,255,0.7)",fontSize:11}}>Love Hub boshqaruvi</div>
+                </div>
+                <div style={{background:"rgba(255,255,255,0.15)",borderRadius:20,padding:"4px 12px",fontSize:11,color:"#fff",fontWeight:700}}>
+                  {ALL_USERS.length} foydalanuvchi
+                </div>
+              </div>
+
+              {/* Tablar */}
+              <div style={{display:"flex",background:"#fff",borderBottom:"1px solid "+C.border,flexShrink:0}}>
+                {[
+                  {k:"users",icon:"👥",label:"Foydalanuvchilar"},
+                  {k:"complaints",icon:"🚨",label:"Shikoyatlar"},
+                  {k:"stats",icon:"📊",label:"Statistika"},
+                ].map(t=>(
+                  <button key={t.k} onClick={()=>{setAdminTab(t.k);setAdminSelectedUser(null);}} style={{
+                    flex:1,padding:"10px 4px",background:"none",border:"none",
+                    borderBottom:adminTab===t.k?"3px solid #7c3aed":"3px solid transparent",
+                    cursor:"pointer",fontSize:11,fontWeight:adminTab===t.k?800:500,
+                    color:adminTab===t.k?"#7c3aed":C.muted
+                  }}>{t.icon} {t.label}</button>
+                ))}
+              </div>
+
+              <div style={{flex:1,overflowY:"auto",padding:"14px"}}>
+
+                {/* FOYDALANUVCHILAR */}
+                {adminTab==="users"&&!adminSelectedUser&&(
+                  <>
+                    <div style={{fontSize:13,color:C.muted,marginBottom:10}}>Jami: {ALL_USERS.length} ta foydalanuvchi</div>
+                    {ALL_USERS.map(u=>(
+                      <div key={u.id} style={{
+                        background:"#fff",borderRadius:16,padding:"12px 14px",marginBottom:8,
+                        border:"1px solid "+C.border,display:"flex",alignItems:"center",gap:12
+                      }}>
+                        <div onClick={()=>setAdminSelectedUser(u)} style={{width:48,height:48,borderRadius:"50%",overflow:"hidden",border:"2px solid #7c3aed33",flexShrink:0,cursor:"pointer"}}>
+                          {u.demoPhoto?<img src={u.demoPhoto} style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<div style={{width:"100%",height:"100%",background:"#f5f3ff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22}}>{u.emoji}</div>}
+                        </div>
+                        <div onClick={()=>setAdminSelectedUser(u)} style={{flex:1,minWidth:0,cursor:"pointer"}}>
+                          <div style={{fontWeight:800,fontSize:14}}>{u.name} {u.vip&&"👑"}</div>
+                          <div style={{fontSize:11,color:C.muted}}>{u.age} yosh · {u.city}</div>
+                          <div style={{fontSize:10,color:u.online?C.green:C.muted,marginTop:2}}>{u.online?"🟢 Online":"⚫ Oflayn"}</div>
+                        </div>
+                        {/* 3 nuqta */}
+                        <div style={{position:"relative"}}>
+                          <button onClick={e=>{e.stopPropagation();setAdminSelectedUser(p=>p?.id===u.id&&p?._menu?null:{...u,_menu:true});}} style={{background:"#f5f3ff",border:"none",borderRadius:"50%",width:32,height:32,cursor:"pointer",fontSize:16,color:"#7c3aed",fontWeight:900}}>⋮</button>
+                          {adminSelectedUser?.id===u.id&&adminSelectedUser?._menu&&(
+                            <div style={{position:"absolute",top:36,right:0,background:"#fff",borderRadius:14,boxShadow:"0 8px 24px rgba(0,0,0,0.15)",minWidth:190,zIndex:100,overflow:"hidden",border:"1px solid "+C.border}} onClick={e=>e.stopPropagation()}>
+                              <div onClick={()=>{
+                                setShowUserDetail(u);
+                                setDetailPhotoIdx(0);
+                                setAdminSelectedUser(null);
+                              }} style={{display:"flex",alignItems:"center",gap:10,padding:"12px 16px",cursor:"pointer",borderBottom:"1px solid "+C.border}}>
+                                <span style={{fontSize:18}}>👁️</span>
+                                <div>
+                                  <div style={{fontWeight:700,fontSize:13,color:"#7c3aed"}}>Profilga o'tish</div>
+                                  <div style={{fontSize:10,color:C.muted}}>Yashirin ko'rish</div>
+                                </div>
+                              </div>
+                              <div onClick={()=>{setAdminSelectedUser(u);}} style={{display:"flex",alignItems:"center",gap:10,padding:"12px 16px",cursor:"pointer",borderBottom:"1px solid "+C.border}}>
+                                <span style={{fontSize:18}}>📋</span>
+                                <div style={{fontWeight:700,fontSize:13,color:C.text}}>Batafsil ma'lumot</div>
+                              </div>
+                              <div onClick={()=>{
+                                setBlocked(p=>[...p,u.id]);
+                                setAdminSelectedUser(null);
+                                toast$("🚫 Bloklandi","#ef4444");
+                              }} style={{display:"flex",alignItems:"center",gap:10,padding:"12px 16px",cursor:"pointer"}}>
+                                <span style={{fontSize:18}}>🚫</span>
+                                <div style={{fontWeight:700,fontSize:13,color:"#ef4444"}}>Bloklash</div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </>
+                )}
+
+                {/* FOYDALANUVCHI DETAIL */}
+                {adminTab==="users"&&adminSelectedUser&&(
+                  <>
+                    <button onClick={()=>setAdminSelectedUser(null)} style={{background:"#f5f3ff",border:"none",borderRadius:12,padding:"8px 16px",color:"#7c3aed",fontWeight:700,fontSize:13,cursor:"pointer",marginBottom:14}}>← Orqaga</button>
+
+                    {/* Profil rasmlari */}
+                    <div style={{background:"#fff",borderRadius:16,padding:"16px",marginBottom:10,border:"1px solid "+C.border}}>
+                      <div style={{fontWeight:800,fontSize:14,marginBottom:10,color:"#7c3aed"}}>📸 Rasmlar</div>
+                      <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                        {[adminSelectedUser.demoPhoto,...(adminSelectedUser.extraPhotos||[])].filter(Boolean).map((p,i)=>(
+                          <img key={i} src={p} style={{width:80,height:80,borderRadius:12,objectFit:"cover",border:"2px solid #7c3aed33"}}/>
+                        ))}
+                        {![adminSelectedUser.demoPhoto,...(adminSelectedUser.extraPhotos||[])].filter(Boolean).length&&(
+                          <div style={{color:C.muted,fontSize:12}}>Rasm yo'q</div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Shaxsiy ma'lumotlar */}
+                    <div style={{background:"#fff",borderRadius:16,padding:"16px",marginBottom:10,border:"1px solid "+C.border}}>
+                      <div style={{fontWeight:800,fontSize:14,marginBottom:10,color:"#7c3aed"}}>👤 Shaxsiy ma'lumotlar</div>
+                      {[
+                        {l:"To'liq ism",v:adminSelectedUser.name},
+                        {l:"Yoshi",v:adminSelectedUser.age+" yosh"},
+                        {l:"Jinsi",v:adminSelectedUser.gender},
+                        {l:"Shahri",v:adminSelectedUser.city},
+                        {l:"Kasbi",v:adminSelectedUser.kasb||"—"},
+                        {l:"Bo'yi",v:adminSelectedUser.height?adminSelectedUser.height+" sm":"—"},
+                        {l:"Vazni",v:adminSelectedUser.weight?adminSelectedUser.weight+" kg":"—"},
+                        {l:"Telegram ID",v:adminSelectedUser.tgUserId||"—"},
+                        {l:"Telegram username",v:adminSelectedUser.tgUsername?"@"+adminSelectedUser.tgUsername:"—"},
+                        {l:"VIP",v:adminSelectedUser.vip?"Ha ✅":"Yo'q"},
+                        {l:"Online",v:adminSelectedUser.online?"Ha 🟢":"Yo'q ⚫"},
+                        {l:"Rating",v:"⭐ "+adminSelectedUser.rating},
+                      ].map((r,i)=>(
+                        <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"7px 0",borderBottom:"1px solid "+C.border}}>
+                          <span style={{fontSize:12,color:C.muted}}>{r.l}</span>
+                          <span style={{fontSize:12,fontWeight:700,color:C.text}}>{r.v}</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Bio */}
+                    {adminSelectedUser.bio&&(
+                      <div style={{background:"#fff",borderRadius:16,padding:"16px",marginBottom:10,border:"1px solid "+C.border}}>
+                        <div style={{fontWeight:800,fontSize:14,marginBottom:8,color:"#7c3aed"}}>📝 O'zi haqida</div>
+                        <div style={{fontSize:13,color:C.text,lineHeight:1.6}}>{adminSelectedUser.bio}</div>
+                      </div>
+                    )}
+
+                    {/* Kimni qidirmoqda */}
+                    {adminSelectedUser.seeking&&(
+                      <div style={{background:"#fff",borderRadius:16,padding:"16px",marginBottom:10,border:"1px solid "+C.border}}>
+                        <div style={{fontWeight:800,fontSize:14,marginBottom:8,color:"#7c3aed"}}>🔍 Kimni qidirmoqda</div>
+                        <div style={{fontSize:13,color:C.text,lineHeight:1.6}}>{adminSelectedUser.seeking}</div>
+                      </div>
+                    )}
+
+                    {/* Yozishmalar */}
+                    <div style={{background:"#fff",borderRadius:16,padding:"16px",marginBottom:10,border:"1px solid "+C.border}}>
+                      <div style={{fontWeight:800,fontSize:14,marginBottom:10,color:"#7c3aed"}}>💬 Yozishmalar</div>
+                      {Object.entries(msgs).filter(([k,v])=>v&&v.length>0).length===0?(
+                        <div style={{fontSize:12,color:C.muted}}>Yozishmalar yo'q</div>
+                      ):Object.entries(msgs).filter(([k,v])=>v&&v.length>0).slice(0,5).map(([userId,messages])=>{
+                        const chatPartner = ALL_USERS.find(u=>String(u.id)===String(userId));
+                        return (
+                          <div key={userId} style={{marginBottom:10,background:"#f8fafc",borderRadius:12,padding:"10px"}}>
+                            <div style={{fontWeight:700,fontSize:12,marginBottom:6,color:"#7c3aed"}}>
+                              {chatPartner?.name||"Foydalanuvchi"} bilan ({messages.length} xabar)
+                            </div>
+                            {messages.slice(-3).map((m,i)=>(
+                              <div key={i} style={{fontSize:11,color:m.from==="me"?"#7c3aed":C.text,marginBottom:3,padding:"4px 8px",background:m.from==="me"?"#f5f3ff":"#fff",borderRadius:8}}>
+                                <span style={{fontWeight:700}}>{m.from==="me"?"Men":"Suhbatdosh"}:</span> {m.text||"🎙️ Ovozli xabar"} <span style={{color:C.muted,fontSize:9}}>{m.time}</span>
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* GO elonlari */}
+                    <div style={{background:"#fff",borderRadius:16,padding:"16px",marginBottom:10,border:"1px solid "+C.border}}>
+                      <div style={{fontWeight:800,fontSize:14,marginBottom:10,color:"#7c3aed"}}>🚀 GO elonlari</div>
+                      {goInvites.filter(inv=>String(inv.userId)===String(adminSelectedUser.id)).length===0?(
+                        <div style={{fontSize:12,color:C.muted}}>E'lonlar yo'q</div>
+                      ):goInvites.filter(inv=>String(inv.userId)===String(adminSelectedUser.id)).map((inv,i)=>(
+                        <div key={i} style={{background:"#f8fafc",borderRadius:12,padding:"10px",marginBottom:8}}>
+                          <div style={{fontWeight:700,fontSize:13}}>{inv.type} — {inv.text?.slice(0,50)}</div>
+                          <div style={{fontSize:11,color:C.muted,marginTop:4}}>📅 {inv.date} 🕐 {inv.time} · ❤️ {inv.likes} like {inv.urgent&&"🚨 Shoshilinch"}</div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Admin amallar */}
+                    <div style={{background:"#fff",borderRadius:16,padding:"16px",marginBottom:14,border:"1px solid #fecaca"}}>
+                      <div style={{fontWeight:800,fontSize:14,marginBottom:10,color:"#ef4444"}}>⚡ Admin amallar</div>
+                      <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                        <button onClick={()=>{
+                          // Yashirin ko'rish — foydalanuvchida hech narsa ko'rinmaydi
+                          setShowUserDetail(adminSelectedUser);
+                          setDetailPhotoIdx(0);
+                        }} style={{width:"100%",padding:"11px",borderRadius:12,background:"linear-gradient(135deg,#7c3aed,#6d28d9)",border:"none",color:"#fff",fontWeight:700,fontSize:13,cursor:"pointer",marginBottom:8,display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+                          👁️ Profilni yashirin ko'rish
+                        </button>
+                        <button onClick={()=>{
+                          setBlocked(p=>[...p,adminSelectedUser.id]);
+                          toast$("🚫 Bloklandi","#ef4444");
+                          setAdminSelectedUser(null);
+                        }} style={{flex:1,padding:"10px",borderRadius:12,background:"#fff5f5",border:"1px solid #fecaca",color:"#ef4444",fontWeight:700,fontSize:12,cursor:"pointer"}}>
+                          🚫 Bloklash
+                        </button>
+                        <button onClick={()=>{
+                          toast$("⚠️ Ogohlantirish yuborildi","#f59e0b");
+                        }} style={{flex:1,padding:"10px",borderRadius:12,background:"#fffbeb",border:"1px solid #fde68a",color:"#d97706",fontWeight:700,fontSize:12,cursor:"pointer"}}>
+                          ⚠️ Ogohlantirish
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {/* SHIKOYATLAR */}
+                {adminTab==="complaints"&&(
+                  <>
+                    <div style={{fontSize:13,color:C.muted,marginBottom:10}}>Kelgan shikoyatlar</div>
+                    {/* Demo shikoyatlar */}
+                    {[
+                      {id:1,reporter:"Foydalanuvchi #1",reported:"Jasur Rahimov",reason:"🎭 Soxta profil",desc:"Rasmlar soxta ko'rinadi",status:"pending",time:"2 soat oldin"},
+                      {id:2,reporter:"Foydalanuvchi #2",reported:"Bobur Xolmatov",reason:"🤬 Haqorat",desc:"Haqoratli xabarlar yuboryapti",status:"resolved",time:"1 kun oldin"},
+                    ].map(c=>(
+                      <div key={c.id} style={{background:"#fff",borderRadius:16,padding:"14px",marginBottom:10,border:"1px solid "+(c.status==="pending"?"#fecaca":C.border)}}>
+                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                          <div style={{fontWeight:800,fontSize:13,color:"#ef4444"}}>{c.reason}</div>
+                          <div style={{
+                            background:c.status==="pending"?"#fef2f2":"#f0fdf4",
+                            color:c.status==="pending"?"#ef4444":"#22c55e",
+                            borderRadius:20,padding:"3px 10px",fontSize:10,fontWeight:700
+                          }}>{c.status==="pending"?"⏳ Kutilmoqda":"✅ Hal qilindi"}</div>
+                        </div>
+                        <div style={{fontSize:12,color:C.text,marginBottom:6}}><b>Kim haqida:</b> {c.reported}</div>
+                        <div style={{fontSize:12,color:C.muted,marginBottom:6}}>{c.desc}</div>
+                        <div style={{fontSize:10,color:C.muted,marginBottom:10}}>🕐 {c.time}</div>
+                        {c.status==="pending"&&(
+                          <div style={{display:"flex",gap:8}}>
+                            <button onClick={()=>toast$("✅ Hal qilindi","#22c55e")} style={{flex:1,padding:"8px",borderRadius:10,background:"#f0fdf4",border:"1px solid #86efac",color:"#22c55e",fontWeight:700,fontSize:12,cursor:"pointer"}}>✅ Hal qildim</button>
+                            <button onClick={()=>toast$("❌ Rad etildi",C.muted)} style={{flex:1,padding:"8px",borderRadius:10,background:"#f8fafc",border:"1px solid "+C.border,color:C.muted,fontWeight:700,fontSize:12,cursor:"pointer"}}>❌ Rad etish</button>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </>
+                )}
+
+                {/* STATISTIKA */}
+                {adminTab==="stats"&&(
+                  <>
+                    {[
+                      {icon:"👥",label:"Jami foydalanuvchilar",val:ALL_USERS.length,color:"#7c3aed"},
+                      {icon:"🟢",label:"Hozir online",val:ALL_USERS.filter(u=>u.online).length,color:"#22c55e"},
+                      {icon:"👑",label:"VIP foydalanuvchilar",val:ALL_USERS.filter(u=>u.vip).length,color:"#f59e0b"},
+                      {icon:"💬",label:"Jami yozishmalar",val:Object.values(msgs).reduce((a,b)=>a+(b?.length||0),0),color:"#38bdf8"},
+                      {icon:"🚀",label:"GO elonlari",val:goInvites.length,color:"#ff6eb4"},
+                      {icon:"🚨",label:"Kutilayotgan shikoyatlar",val:2,color:"#ef4444"},
+                    ].map((s,i)=>(
+                      <div key={i} style={{background:"#fff",borderRadius:16,padding:"14px 16px",marginBottom:8,border:"1px solid "+C.border,display:"flex",alignItems:"center",gap:14}}>
+                        <div style={{width:44,height:44,borderRadius:12,background:s.color+"18",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,flexShrink:0}}>{s.icon}</div>
+                        <div style={{flex:1}}>
+                          <div style={{fontSize:12,color:C.muted}}>{s.label}</div>
+                          <div style={{fontWeight:900,fontSize:22,color:s.color}}>{s.val}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </>
+                )}
+
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
       {/* USER DETAIL */}
       {showUserDetail&&(
-        <div style={{...ov,zIndex:400}} onClick={()=>setShowUserDetail(null)}>
-          <div style={{background:"#fff",borderRadius:"24px 24px 0 0",width:"100%",maxWidth:430,maxHeight:"88vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
+        <div style={{...ov,zIndex:900}} onClick={()=>setShowUserDetail(null)}>
+          <div
+            style={{background:"#fff",borderRadius:"24px 24px 0 0",width:"100%",maxWidth:430,maxHeight:"88vh",overflowY:"auto",position:"relative"}}
+            onClick={e=>e.stopPropagation()}
+            onTouchStart={e=>{e.stopPropagation();e.currentTarget._touchX=e.touches[0].clientX;}}
+            onTouchEnd={e=>{
+              e.stopPropagation();
+              const dx = e.changedTouches[0].clientX - (e.currentTarget._touchX||0);
+              if(dx < -80) setShowUserDetail(null);
+            }}
+          >
+            {/* ORTGA TUGMASI */}
+            <div style={{position:"sticky",top:0,zIndex:10,padding:"12px 16px 0",display:"flex",alignItems:"center",background:"transparent",pointerEvents:"none"}}>
+              <button
+                onClick={()=>setShowUserDetail(null)}
+                style={{
+                  pointerEvents:"all",
+                  width:36,height:36,borderRadius:"50%",
+                  background:"rgba(0,0,0,0.45)",
+                  backdropFilter:"blur(8px)",
+                  border:"none",color:"#fff",
+                  fontSize:18,cursor:"pointer",
+                  display:"flex",alignItems:"center",justifyContent:"center"
+                }}>←</button>
+            </div>
             {(()=>{
               const all=[showUserDetail.demoPhoto,...(showUserDetail.extraPhotos||[])].filter(Boolean);
               const idx=detailPhotoIdx%Math.max(all.length,1);
@@ -1607,6 +2570,8 @@ export default function App() {
               {[
                 {icon:"⚧",label:"Jins",val:showUserDetail.gender==="ayol"?"Ayol":"Erkak"},
                 {icon:"💼",label:"Kasbi",val:showUserDetail.kasb||"—"},
+                {icon:"📏",label:"Bo'yi",val:showUserDetail.height?(showUserDetail.height+" sm"):"—"},
+                {icon:"⚖️",label:"Vazni",val:showUserDetail.weight?(showUserDetail.weight+" kg"):"—"},
                 {icon:"💍",label:"Turmush",val:showUserDetail.married==="ha"?"Ha":"Yoq"},
               ].map(r=>(
                 <div key={r.label} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderBottom:"1px solid "+C.border}}>
@@ -1615,20 +2580,113 @@ export default function App() {
                   <span style={{fontSize:13,fontWeight:600}}>{r.val}</span>
                 </div>
               ))}
-              {/* KIMNI QIDIRMOQDA */}
+              {/* KIMNI QIDIRMOQDA — kichik preview */}
               {showUserDetail.seeking&&(
-                <div style={{marginTop:12,background:"linear-gradient(135deg,#fff0f6,#e0f2fe)",borderRadius:14,padding:"12px 14px",border:"1px solid #fbcfe8"}}>
-                  <div style={{fontSize:11,color:C.accent,fontWeight:700,marginBottom:5,display:"flex",alignItems:"center",gap:5}}>🔍 Kimni qidirmoqda</div>
-                  <div style={{fontSize:13,color:C.text,lineHeight:1.6}}>{showUserDetail.seeking}</div>
+                <div onClick={()=>setDetailExpandModal("seeking")} style={{
+                  marginTop:10,borderRadius:12,padding:"10px 14px",
+                  border:"1px solid "+C.border,background:"#fafafa",
+                  display:"flex",alignItems:"center",gap:10,cursor:"pointer"
+                }}>
+                  <span style={{fontSize:16}}>🔍</span>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontSize:11,color:C.muted,fontWeight:600,marginBottom:2}}>Kimni qidirmoqda</div>
+                    <div style={{fontSize:12,color:C.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{showUserDetail.seeking}</div>
+                  </div>
+                  <span style={{fontSize:14,color:C.muted}}>›</span>
                 </div>
               )}
+
+              {/* OVOZLI XABAR — kichik preview */}
+              {(()=>{
+                const isMe = showUserDetail.id === myUserId;
+                const hasVoice = isMe ? voiceBlob : showUserDetail.voiceUrl;
+                const declined = isMe ? voiceDeclined : showUserDetail.voiceDeclined;
+                const verified = isMe ? voiceVerified : showUserDetail.voiceVerified;
+                return (
+                  <div onClick={()=>hasVoice&&setDetailExpandModal("voice")} style={{
+                    marginTop:8,borderRadius:12,padding:"10px 14px",
+                    border:"1px solid "+C.border,background:"#fafafa",
+                    display:"flex",alignItems:"center",gap:10,
+                    cursor:hasVoice?"pointer":"default"
+                  }}>
+                    <span style={{fontSize:16}}>🎙️</span>
+                    <div style={{flex:1}}>
+                      <div style={{fontSize:11,color:C.muted,fontWeight:600,marginBottom:2}}>Ovozli xabar</div>
+                      <div style={{fontSize:12,color:hasVoice?"#16a34a":C.muted,fontStyle:!hasVoice?"italic":"normal"}}>
+                        {hasVoice?"▶ Tinglash uchun bosing":declined?"Qoldirishni istamadi":"Hali qoldirmagan"}
+                      </div>
+                    </div>
+                    {verified&&<div style={{background:"#22c55e",borderRadius:20,padding:"2px 8px",fontSize:9,fontWeight:700,color:"#fff"}}>✅</div>}
+                    {hasVoice&&<span style={{fontSize:14,color:C.muted}}>›</span>}
+                  </div>
+                );
+              })()}
             </div>
             <div style={{display:"flex",gap:10,padding:"12px 18px 24px"}}>
-              <button onClick={()=>{dislike();setShowUserDetail(null);}} style={{flex:1,background:"#f1f5f9",border:"none",borderRadius:14,padding:"12px",fontSize:18,cursor:"pointer",fontWeight:700}}>✕ Inkor</button>
+              <button onClick={()=>{setShowBlockModal(showUserDetail);setShowUserDetail(null);}} style={{flex:1,background:"#fff5f5",border:"1px solid #fecaca",borderRadius:14,padding:"12px",fontSize:16,cursor:"pointer",fontWeight:700,color:"#ef4444"}}>🚫 Bloklash</button>
               <button onClick={()=>{setGiftModal(showUserDetail);setGiftNote("");setShowUserDetail(null);}} style={{flex:1,background:"linear-gradient(135deg,#f59e0b,#fbbf24)",border:"none",borderRadius:14,padding:"12px",color:"#fff",fontSize:18,cursor:"pointer",fontWeight:700}}>🎁 Sovga</button>
-              <button onClick={()=>{like(showUserDetail.id);setShowUserDetail(null);}} style={{flex:1,background:"linear-gradient(135deg,#ff6eb4,#f472b6)",border:"none",borderRadius:14,padding:"12px",color:"#fff",fontSize:18,cursor:"pointer",fontWeight:700}}>❤️ Dost</button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ❤️ LIKE BILDIRISHNOMASI */}
+      {likeNotif&&notifSettings.likes&&(
+        <div style={{
+          position:"fixed",bottom:90,left:"50%",transform:"translateX(-50%)",
+          width:"calc(100% - 32px)",maxWidth:390,
+          background:"#fff",borderRadius:20,
+          boxShadow:"0 8px 32px rgba(255,110,180,0.3)",
+          border:"2px solid #ff6eb4",
+          padding:"14px 16px",zIndex:600,
+          animation:"slideUp 0.4s ease"
+        }}>
+          <style>{`@keyframes slideUp{from{transform:translateX(-50%) translateY(100px);opacity:0}to{transform:translateX(-50%) translateY(0);opacity:1}}`}</style>
+          <div style={{display:"flex",alignItems:"center",gap:12}}>
+            {/* Rasm */}
+            <div style={{position:"relative",flexShrink:0}}>
+              <div style={{width:52,height:52,borderRadius:"50%",overflow:"hidden",border:"3px solid #ff6eb4"}}>
+                {likeNotif.user.demoPhoto
+                  ? <img src={likeNotif.user.demoPhoto} style={{width:"100%",height:"100%",objectFit:"cover"}}/>
+                  : <div style={{width:"100%",height:"100%",background:"#fff0f6",display:"flex",alignItems:"center",justifyContent:"center",fontSize:24}}>
+                      {likeNotif.user.emoji||"👤"}
+                    </div>
+                }
+              </div>
+              <div style={{position:"absolute",bottom:-2,right:-2,background:"#ff6eb4",borderRadius:"50%",width:20,height:20,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,border:"2px solid #fff"}}>❤️</div>
+            </div>
+            {/* Matn */}
+            <div style={{flex:1}}>
+              <div style={{fontWeight:900,fontSize:14,color:"#1e293b"}}>
+                {likeNotif.user.name?.split(" ")[0]||"Kimdir"} sizni yoqtirdi! ❤️
+              </div>
+              <div style={{fontSize:12,color:"#94a3b8",marginTop:2}}>
+                {likeNotif.user.city||""} · Hozirgina
+              </div>
+            </div>
+            {/* Tugmalar */}
+            <div style={{display:"flex",flexDirection:"column",gap:6,flexShrink:0}}>
+              <button onClick={()=>{
+                setLikeNotif(null);
+                setShowUserDetail(likeNotif.user);
+                setDetailPhotoIdx(0);
+              }} style={{
+                background:"linear-gradient(135deg,#ff6eb4,#f472b6)",
+                border:"none",borderRadius:12,padding:"6px 12px",
+                color:"#fff",fontWeight:700,fontSize:12,cursor:"pointer"
+              }}>Ko'rish</button>
+              <button onClick={()=>setLikeNotif(null)} style={{
+                background:"#f1f5f9",border:"none",borderRadius:12,
+                padding:"6px 12px",color:"#94a3b8",fontWeight:600,
+                fontSize:12,cursor:"pointer"
+              }}>Yopish</button>
+            </div>
+          </div>
+          {/* Progress bar */}
+          <div style={{marginTop:10,height:3,background:"#fee2e2",borderRadius:2,overflow:"hidden"}}>
+            <div style={{height:"100%",background:"#ff6eb4",borderRadius:2,animation:"progress5s 5s linear forwards"}}/>
+          </div>
+          <style>{`@keyframes progress5s{from{width:100%}to{width:0%}}`}</style>
         </div>
       )}
 
@@ -1723,14 +2781,117 @@ export default function App() {
               <div style={{width:10,height:10,borderRadius:"50%",background:chatUser.online?C.green:C.muted,position:"absolute",bottom:0,right:0,border:"2px solid #fff"}}/>
             </div>
             <div onClick={()=>{setShowUserDetail(chatUser);setDetailPhotoIdx(0);}} style={{flex:1,cursor:"pointer"}}>
-              <div style={{fontWeight:800,fontSize:15}}>{chatUser.name} {chatUser.vip&&"👑"}</div>
+              <div style={{fontWeight:800,fontSize:15}}>{chatUser.name.split(" ")[0]} {chatUser.vip&&"👑"}</div>
               <div style={{fontSize:11,color:chatUser.online?C.green:C.muted}}>{chatUser.online?T.online:"Oflayn"}</div>
             </div>
-            <button onClick={()=>{if(!vip){toast$("VIP kerak!",C.gold);return;}setVideoCall(chatUser);}} style={{background:"none",border:"none",fontSize:20,cursor:"pointer",opacity:vip?1:0.4}}>📹</button>
-            <button onClick={()=>{setGiftModal(chatUser);setGiftNote("");}} style={{background:"none",border:"none",fontSize:20,cursor:"pointer"}}>🎁</button>
-            <button onClick={()=>setShowBlockModal(chatUser)} style={{background:"none",border:"none",fontSize:20,cursor:"pointer"}}>🚫</button>
+
+            {/* 3 NUQTA MENYU */}
+            <div style={{position:"relative"}}>
+              <button onClick={()=>setChatMenuOpen(chatMenuOpen==="header"?null:"header")} style={{
+                background:"none",border:"none",fontSize:22,cursor:"pointer",
+                color:C.muted,padding:"4px 8px",fontWeight:900
+              }}>⋮</button>
+
+              {chatMenuOpen==="header"&&(
+                <div style={{
+                  position:"absolute",top:36,right:0,
+                  background:"#fff",borderRadius:14,
+                  boxShadow:"0 8px 32px rgba(0,0,0,0.15)",
+                  minWidth:210,zIndex:300,overflow:"hidden",
+                  border:"1px solid "+C.border
+                }} onClick={e=>e.stopPropagation()}>
+                  {/* Telegram taklif */}
+                  <div onClick={()=>{
+                    setChatMenuOpen(null);
+                    const status = tgRequests[chatUser.id];
+                    if(status==="pending"){toast$("⏳ Javob kutilmoqda...","#f59e0b");return;}
+                    if(status==="accepted"){toast$("✅ Allaqachon qabul qilingan","#22c55e");return;}
+                    if(status==="rejected"){toast$("❌ Rad etilgan. Sovga yuborib urining 🎁","#ef4444");return;}
+                    setTgRequests(p=>({...p,[chatUser.id]:"pending"}));
+                    const t2 = new Date().toLocaleTimeString("uz",{hour:"2-digit",minute:"2-digit"});
+                    setMsgs(p=>({...p,[chat]:[...(p[chat]||[]),
+                      {from:"me",text:"✈️ Telegram orqali suhbatni davom ettirishni taklif qildim.",time:t2}
+                    ]}));
+                    setTimeout(()=>setShowTgModal(chatUser), 1500);
+                    toast$("✈️ Telegram taklifi yuborildi!","#0088cc");
+                  }} style={{
+                    display:"flex",alignItems:"center",gap:10,
+                    padding:"13px 16px",cursor:"pointer",
+                    borderBottom:"1px solid "+C.border
+                  }}>
+                    <span style={{fontSize:20}}>✈️</span>
+                    <div>
+                      <div style={{fontWeight:700,fontSize:13,color:"#0088cc"}}>Telegramga taklif qilish</div>
+                      <div style={{fontSize:10,color:C.muted,marginTop:1}}>
+                        {tgRequests[chatUser.id]==="pending"?"⏳ Javob kutilmoqda":
+                         tgRequests[chatUser.id]==="accepted"?"✅ Qabul qilingan":
+                         tgRequests[chatUser.id]==="rejected"?"❌ Rad etilgan":
+                         "Telegram orqali davom eting"}
+                      </div>
+                    </div>
+                  </div>
+                  {/* Bloklash */}
+                  <div onClick={()=>{setChatMenuOpen(null);setShowBlockModal(chatUser);}} style={{
+                    display:"flex",alignItems:"center",gap:10,
+                    padding:"13px 16px",cursor:"pointer",
+                    borderBottom:"1px solid "+C.border
+                  }}>
+                    <span style={{fontSize:20}}>🚫</span>
+                    <div style={{fontWeight:700,fontSize:13,color:"#ef4444"}}>Bloklash</div>
+                  </div>
+                  {/* FON TANLASH */}
+                  <div style={{padding:"12px 16px"}}>
+                    <div style={{fontSize:11,color:C.muted,fontWeight:700,marginBottom:8}}>🎨 Chat foni</div>
+                    <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                      {[
+                        {id:"default", bg:"#e5ddd5", label:"Standart"},
+                        {id:"blue", bg:"linear-gradient(135deg,#dbeafe,#e0f2fe)", label:"Ko'k"},
+                        {id:"pink", bg:"linear-gradient(135deg,#fce7f3,#fff0f6)", label:"Pushti"},
+                        {id:"green", bg:"linear-gradient(135deg,#dcfce7,#d1fae5)", label:"Yashil"},
+                        {id:"purple", bg:"linear-gradient(135deg,#f3e8ff,#ede9fe)", label:"Binafsha"},
+                        {id:"sunset", bg:"linear-gradient(135deg,#fed7aa,#fecaca)", label:"Quyosh"},
+                        {id:"dark", bg:"linear-gradient(135deg,#1e293b,#0f172a)", label:"Qora"},
+                        {id:"ocean", bg:"linear-gradient(135deg,#164e63,#0c4a6e)", label:"Okean"},
+                        {id:"rose", bg:"linear-gradient(160deg,#ff9a9e,#fad0c4)", label:"Atirgul"},
+                        {id:"mint", bg:"linear-gradient(135deg,#a8edea,#fed6e3)", label:"Myata"},
+                      ].map(t=>(
+                        <div key={t.id} onClick={()=>{
+                          setChatBgs(p=>({...p,[chat]:t.id}));
+                          setChatMenuOpen(null);
+                          toast$("🎨 Fon o'zgartirildi!",C.accent);
+                        }} style={{
+                          width:36,height:36,borderRadius:10,
+                          background:t.bg,cursor:"pointer",
+                          border: chatBgs[chat]===t.id?"3px solid "+C.accent:"2px solid transparent",
+                          boxShadow: chatBgs[chat]===t.id?"0 0 8px "+C.accent+"88":"none",
+                          flexShrink:0,position:"relative"
+                        }}>
+                          {chatBgs[chat]===t.id&&(
+                            <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14}}>✓</div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
-          <div style={{flex:1,overflowY:"auto",padding:"10px 10px",display:"flex",flexDirection:"column",gap:6,background:"#e5ddd5"}} onClick={()=>setMsgMenu(null)}>
+          <div style={{flex:1,overflowY:"auto",padding:"10px 10px",display:"flex",flexDirection:"column",gap:6,background:(()=>{
+  const bgs = {
+    default:"#e5ddd5",
+    blue:"linear-gradient(135deg,#dbeafe,#e0f2fe)",
+    pink:"linear-gradient(135deg,#fce7f3,#fff0f6)",
+    green:"linear-gradient(135deg,#dcfce7,#d1fae5)",
+    purple:"linear-gradient(135deg,#f3e8ff,#ede9fe)",
+    sunset:"linear-gradient(135deg,#fed7aa,#fecaca)",
+    dark:"linear-gradient(135deg,#1e293b,#0f172a)",
+    ocean:"linear-gradient(135deg,#164e63,#0c4a6e)",
+    rose:"linear-gradient(160deg,#ff9a9e,#fad0c4)",
+    mint:"linear-gradient(135deg,#a8edea,#fed6e3)",
+  };
+  return bgs[chatBgs[chat]] || "#e5ddd5";
+})()}} onClick={()=>setMsgMenu(null)}>
             {(msgs[chat]||[]).map((m,i)=>{
               const isMe=m.from==="me";
               const base={alignSelf:isMe?"flex-end":"flex-start",maxWidth:"80%",borderRadius:isMe?"18px 4px 18px 18px":"4px 18px 18px 18px",position:"relative"};
@@ -1739,90 +2900,190 @@ export default function App() {
                 <div style={{fontSize:10,color:"rgba(0,0,0,0.4)",marginTop:2,textAlign:isMe?"right":"left",display:"flex",alignItems:"center",justifyContent:isMe?"flex-end":"flex-start",gap:4}}>
                   {m.edited&&<span style={{fontSize:9,fontStyle:"italic",opacity:0.7}}>tahrirlangan</span>}
                   {m.time}
+                  {isMe&&(
+                    <span style={{fontSize:12,marginLeft:1,lineHeight:1}}>
+                      {m.read
+                        ? <span style={{color:"#38bdf8"}}>✓✓</span>
+                        : <span style={{color:"rgba(0,0,0,0.35)"}}>✓</span>
+                      }
+                    </span>
+                  )}
                 </div>
               );
               const isMenuOpen = msgMenu?.chatId===chat && msgMenu?.idx===i;
 
-              // Xabar ustiga bosish — faqat VIP va o'z xabarlari
-              const handleMsgPress = (e) => {
-                if(!isMe || !vip) return;
-                e.stopPropagation();
-                setMsgMenu(isMenuOpen ? null : {chatId:chat, idx:i});
+              // Long press handler
+              let pressTimer = null;
+              const handleTouchStart = (e) => {
+                pressTimer = setTimeout(()=>{
+                  e.stopPropagation();
+                  setMsgMenu(isMenuOpen ? null : {chatId:chat, idx:i});
+                }, 600);
               };
+              const handleTouchEnd = () => { clearTimeout(pressTimer); };
+              const handleMouseDown = (e) => {
+                pressTimer = setTimeout(()=>{
+                  e.stopPropagation();
+                  setMsgMenu(isMenuOpen ? null : {chatId:chat, idx:i});
+                }, 600);
+              };
+              const handleMouseUp = () => { clearTimeout(pressTimer); };
 
-              // VIP menyu
-              const VipMenu = () => (
+              // Xabar menyu
+              const MsgMenu = () => (
                 <div style={{
                   position:"absolute",
-                  bottom:"100%",right:0,
-                  background:"#fff",borderRadius:14,
-                  boxShadow:"0 4px 20px rgba(0,0,0,0.18)",
+                  [isMe?"right":"left"]:0,
+                  ...(i < 4 ? {top:"calc(100% + 6px)"} : {bottom:"calc(100% + 6px)"}),
+                  background:"#fff",borderRadius:16,
+                  boxShadow:"0 8px 32px rgba(0,0,0,0.18)",
                   overflow:"hidden",zIndex:50,
-                  minWidth:140,marginBottom:4
+                  minWidth:180,
                 }} onClick={e=>e.stopPropagation()}>
-                  {/* Tahrirlash */}
-                  {!m.gif && !m.type && (
+                  {/* Javob berish — hammaga */}
+                  <div onClick={()=>{
+                    setReplyTo({text:m.text||"🎙️ Ovozli xabar", from:m.from==="me"?"Siz":chatUser.name.split(" ")[0], idx:i});
+                    setMsgMenu(null);
+                  }} style={{display:"flex",alignItems:"center",gap:10,padding:"12px 16px",cursor:"pointer",borderBottom:"1px solid #f1f5f9"}}>
+                    <span style={{fontSize:18}}>↩️</span>
+                    <span style={{fontSize:13,fontWeight:700,color:"#1e293b"}}>Javob berish</span>
+                  </div>
+                  {/* Tahrirlash — faqat o'z xabarlar */}
+                  {isMe && !m.gif && !m.type && !m.voice && (
                     <div onClick={()=>{
                       setEditingMsg({chatId:chat,idx:i});
                       setEditText(m.text||"");
                       setMsgMenu(null);
-                    }} style={{display:"flex",alignItems:"center",gap:10,padding:"11px 14px",cursor:"pointer",borderBottom:"1px solid #f0f9ff"}}>
-                      <span style={{fontSize:16}}>✏️</span>
+                    }} style={{display:"flex",alignItems:"center",gap:10,padding:"12px 16px",cursor:"pointer",borderBottom:"1px solid #f1f5f9"}}>
+                      <span style={{fontSize:18}}>✏️</span>
                       <span style={{fontSize:13,fontWeight:700,color:"#3b82f6"}}>Tahrirlash</span>
                     </div>
                   )}
-                  {/* O'chirish */}
-                  <div onClick={()=>{
-                    setMsgs(p=>({...p,[chat]:(p[chat]||[]).filter((_,j)=>j!==i)}));
-                    setMsgMenu(null);
-                    toast$("Xabar o'chirildi","#ef4444");
-                  }} style={{display:"flex",alignItems:"center",gap:10,padding:"11px 14px",cursor:"pointer"}}>
-                    <span style={{fontSize:16}}>🗑️</span>
-                    <span style={{fontSize:13,fontWeight:700,color:"#ef4444"}}>O'chirish</span>
+                  {/* O'chirish — faqat o'z xabarlar */}
+                  {isMe && (
+                    <div onClick={()=>{
+                      const msgId = m.id;
+                      setMsgs(p=>{
+                        const updated = {...p};
+                        // Barcha chatlarda shu ID li xabarni o'chirish
+                        Object.keys(updated).forEach(key=>{
+                          updated[key] = (updated[key]||[]).filter(x=>
+                            msgId ? x.id!==msgId : true
+                          );
+                        });
+                        // Index orqali ham o'chirish (ID yo'q bo'lsa)
+                        if(!msgId && updated[chat]) {
+                          updated[chat] = updated[chat].filter((_,j)=>j!==i);
+                        }
+                        return updated;
+                      });
+                      // Supabase dan o'chirish
+                      if(sb && msgId) sb.from('messages').delete().eq('id', msgId).catch(()=>{});
+                      setMsgMenu(null);
+                      toast$("🗑️ Xabar o'chirildi","#ef4444");
+                    }} style={{display:"flex",alignItems:"center",gap:10,padding:"12px 16px",cursor:"pointer"}}>
+                      <span style={{fontSize:18}}>🗑️</span>
+                      <span style={{fontSize:13,fontWeight:700,color:"#ef4444"}}>O'chirish</span>
+                    </div>
+                  )}
+                  {/* Faqat ko'rish — o'zga xabarlar */}
+                  {!isMe && (
+                    <div onClick={()=>setMsgMenu(null)} style={{display:"flex",alignItems:"center",gap:10,padding:"12px 16px",cursor:"pointer"}}>
+                      <span style={{fontSize:18}}>✕</span>
+                      <span style={{fontSize:13,fontWeight:600,color:C.muted}}>Yopish</span>
+                    </div>
+                  )}
+                </div>
+              );
+
+              // 3 nuqta tugmasi — xabar ichida
+              const ThreeDots = () => (
+                <button
+                  onClick={e=>{e.stopPropagation();setMsgMenu(isMenuOpen?null:{chatId:chat,idx:i});}}
+                  style={{
+                    background:"none",border:"none",
+                    cursor:"pointer",flexShrink:0,
+                    fontSize:16,color:"rgba(0,0,0,0.3)",
+                    padding:"0 2px",lineHeight:1,
+                    alignSelf:"flex-end",marginBottom:2,
+                  }}>⋮</button>
+              );
+
+              if(m.voice) return (
+                <div key={i} style={{...base,overflow:"visible",display:"flex",alignItems:"flex-end",gap:4,flexDirection:isMe?"row-reverse":"row"}} onMouseDown={handleMouseDown} onMouseUp={handleMouseUp} onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+                  <div style={{...bg,padding:"8px 12px",minWidth:180,position:"relative"}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8}}>
+                      <div style={{width:34,height:34,borderRadius:"50%",
+                        background:isMe?"#007aff":"#ff6eb4",
+                        display:"flex",alignItems:"center",justifyContent:"center",
+                        flexShrink:0}}>
+                        <span style={{fontSize:16}}>🎙️</span>
+                      </div>
+                      <audio src={m.voiceUrl} controls style={{flex:1,height:32}} controlsList="nodownload" onContextMenu={e=>e.preventDefault()}/>
+                      <ThreeDots/>
+                    </div>
+                    {timeEl}
+                    {isMenuOpen&&<MsgMenu/>}
                   </div>
                 </div>
               );
 
               if(m.gif) return (
-                <div key={i} style={{...base,overflow:"visible"}} onClick={handleMsgPress}>
+                <div key={i} style={{...base,overflow:"visible"}} onMouseDown={handleMouseDown} onMouseUp={handleMouseUp} onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
                   <img src={m.gif} style={{width:"100%",maxWidth:200,borderRadius:"inherit",display:"block"}}/>
                   <div style={{...bg,padding:"4px 10px"}}>{timeEl}</div>
-                  {isMenuOpen&&<VipMenu/>}
+                  {isMenuOpen&&<MsgMenu/>}
                 </div>
               );
               if(m.type==="photo") return (
-                <div key={i} style={{...base,overflow:"visible"}} onClick={handleMsgPress}>
+                <div key={i} style={{...base,overflow:"visible"}} onMouseDown={handleMouseDown} onMouseUp={handleMouseUp} onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
                   <img src={m.payload?.url} alt="" style={{width:"100%",maxWidth:220,borderRadius:14,display:"block"}}/>
                   <div style={{...bg,padding:"4px 8px"}}>{timeEl}</div>
-                  {isMenuOpen&&<VipMenu/>}
+                  {isMenuOpen&&<MsgMenu/>}
                 </div>
               );
               if(m.type==="music") return (
-                <div key={i} style={{...base,...bg}} onClick={handleMsgPress}>
+                <div key={i} style={{...base,...bg}} onMouseDown={handleMouseDown} onMouseUp={handleMouseUp} onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
                   <div style={{display:"flex",alignItems:"center",gap:8}}><span style={{fontSize:24}}>🎵</span><div style={{flex:1}}><div style={{fontSize:11,fontWeight:700}}>{m.payload?.name}</div><audio src={m.payload?.url} controls style={{width:"100%",height:28}}/></div></div>
                   {timeEl}
-                  {isMenuOpen&&<VipMenu/>}
+                  {isMenuOpen&&<MsgMenu/>}
                 </div>
               );
               if(m.type==="file") return (
-                <div key={i} style={{...base,...bg}} onClick={handleMsgPress}>
+                <div key={i} style={{...base,...bg}} onMouseDown={handleMouseDown} onMouseUp={handleMouseUp} onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
                   <div style={{display:"flex",alignItems:"center",gap:8}}><span style={{fontSize:22}}>📄</span><div><div style={{fontSize:11,fontWeight:700}}>{m.payload?.name}</div><div style={{fontSize:10,opacity:.7}}>{m.payload?.size}</div></div></div>
                   {timeEl}
-                  {isMenuOpen&&<VipMenu/>}
+                  {isMenuOpen&&<MsgMenu/>}
                 </div>
               );
               if(m.type==="location") return (
-                <div key={i} style={{...base,overflow:"visible"}} onClick={handleMsgPress}>
+                <div key={i} style={{...base,overflow:"visible"}} onMouseDown={handleMouseDown} onMouseUp={handleMouseUp} onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
                   <div style={{background:"linear-gradient(135deg,#34d399,#10b981)",padding:"12px 14px",display:"flex",alignItems:"center",gap:8,borderRadius:"inherit"}}><span style={{fontSize:28}}>📍</span><div style={{color:"#fff",fontWeight:700,fontSize:13}}>Joylashuv ulashildi</div></div>
                   <div style={{...bg,padding:"4px 12px"}}>{timeEl}</div>
-                  {isMenuOpen&&<VipMenu/>}
+                  {isMenuOpen&&<MsgMenu/>}
                 </div>
               );
               return (
-                <div key={i} style={{...base,...bg,fontSize:m.sticker?36:14,cursor:isMe&&vip?"pointer":"default"}} onClick={handleMsgPress}>
-                  {m.text}
-                  {timeEl}
-                  {isMenuOpen&&<VipMenu/>}
+                <div key={i} style={{...base,...bg,fontSize:m.sticker?36:14}} onMouseDown={handleMouseDown} onMouseUp={handleMouseUp} onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+                  {m.replyTo&&(
+                    <div style={{
+                      background:"rgba(0,0,0,0.07)",borderRadius:8,
+                      padding:"5px 8px",marginBottom:5,
+                      borderLeft:"3px solid #38bdf8",
+                      fontSize:11,color:"rgba(0,0,0,0.6)"
+                    }}>
+                      <div style={{fontWeight:700,color:"#0284c7",fontSize:10}}>{m.replyTo.from}</div>
+                      <div style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m.replyTo.text}</div>
+                    </div>
+                  )}
+                  {m.text?.split("\n").map((line,i,arr)=>(
+                    <span key={i}>{line}{i<arr.length-1&&<br/>}</span>
+                  ))}
+                  <div style={{display:"flex",alignItems:"center",justifyContent:isMe?"flex-end":"flex-start",gap:4}}>
+                    {timeEl}
+                    <ThreeDots/>
+                  </div>
+                  {isMenuOpen&&<MsgMenu/>}
                 </div>
               );
             })}
@@ -1875,6 +3136,24 @@ export default function App() {
                   }},
                   {icon:"🎁",label:"Sovga",color:"#ff6eb4",fn:()=>{setGiftModal(chatUser);setMediaPanel(false);}},
                   {icon:"😊",label:"Smaylik",color:"#f97316",fn:()=>{setStickers(true);setMediaPanel(false);}},
+                  {icon:"✈️",label:"Telegram",color:"#0088cc",fn:()=>{
+                    if(!chatUser.tgUsername && !chatUser.tgUserId){toast$("Bu foydalanuvchi Telegram ma'lumoti yo'q","#ef4444");setMediaPanel(false);return;}
+                    const status = tgRequests[chatUser.id];
+                    if(status==="accepted"){const _l=chatUser.tgUsername?"https://t.me/"+chatUser.tgUsername:chatUser.tgUserId?"tg://user?id="+chatUser.tgUserId:null;if(_l)window.Telegram?.WebApp?.openTelegramLink?.(_l)||window.open(_l,"_blank");setMediaPanel(false);return;}
+                    if(status==="pending"){toast$("So'rov yuborilgan, javob kutilmoqda...","#f59e0b");setMediaPanel(false);return;}
+                    if(status==="rejected"){toast$("Taklifingiz rad etildi. Sovga yuborib qaytadan urining 🎁","#ef4444");setMediaPanel(false);return;}
+                    // So'rov yuborish
+                    setTgRequests(p=>({...p,[chatUser.id]:"pending"}));
+                    // Chatda xabar
+                    const t2 = new Date().toLocaleTimeString("uz",{hour:"2-digit",minute:"2-digit"});
+                    setMsgs(p=>({...p,[chatUser.id]:[...(p[chatUser.id]||[]),
+                      {from:"me",text:"✈️ Telegram orqali suhbatni davom ettirishni taklif qildim. Javob kutilmoqda...",time:t2}
+                    ]}));
+                    // Demo: 3 soniyadan keyin so'rov keldi deb ko'rsatamiz
+                    setTimeout(()=>setShowTgModal(chatUser), 1500);
+                    toast$("✈️ Telegram taklifi yuborildi!","#0088cc");
+                    setMediaPanel(false);
+                  }},
                   {icon:"❌",label:"Yopish",color:"#94a3b8",fn:()=>setMediaPanel(false)},
                 ].map((b,i)=>(
                   <div key={i} onClick={b.fn} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4,cursor:"pointer",padding:"8px 4px",borderRadius:12,background:b.color+"11",border:"1px solid "+b.color+"33"}}>
@@ -1885,7 +3164,24 @@ export default function App() {
               </div>
             </div>
           )}
-          <div style={{background:"#f2f2f7",padding:"8px 10px",display:"flex",gap:8,alignItems:"flex-end",borderTop:"1px solid #ddd",flexShrink:0}}>
+          <div style={{background:"#f2f2f7",padding:"8px 10px",display:"flex",gap:8,alignItems:"flex-end",borderTop:"1px solid #ddd",flexShrink:0,flexDirection:"column"}}>
+            {/* REPLY PREVIEW */}
+            {replyTo&&(
+              <div style={{width:"100%",background:"#e0f2fe",borderRadius:10,padding:"6px 12px",display:"flex",alignItems:"center",gap:8,borderLeft:"3px solid #38bdf8"}}>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontSize:10,fontWeight:700,color:"#0284c7"}}>{replyTo.from}</div>
+                  <div style={{fontSize:12,color:"#1e293b",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{replyTo.text}</div>
+                </div>
+                <button onClick={()=>setReplyTo(null)} style={{background:"none",border:"none",color:C.muted,fontSize:16,cursor:"pointer",flexShrink:0}}>✕</button>
+              </div>
+            )}
+            <div style={{display:"flex",gap:8,alignItems:"flex-end",width:"100%"}}>
+              {chatVoiceRecording&&(
+              <div style={{position:"absolute",bottom:60,left:0,right:0,background:"rgba(239,68,68,0.95)",padding:"8px 16px",display:"flex",alignItems:"center",gap:10,zIndex:10}}>
+                <div style={{width:10,height:10,borderRadius:"50%",background:"#fff",animation:"pulse 1s infinite"}}/>
+                <span style={{color:"#fff",fontWeight:700,fontSize:13}}>🎙️ Yozilmoqda... qo'yib yuboring</span>
+              </div>
+            )}
             {/* TAHRIRLASH REJIMI */}
             {editingMsg ? (
               <>
@@ -1919,14 +3215,71 @@ export default function App() {
               <>
                 <button onClick={()=>{setMediaPanel(p=>!p);if(stickers)setStickers(false);}} style={{width:32,height:32,marginBottom:2,borderRadius:"50%",background:"none",border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,color:"#8e8e93",flexShrink:0,padding:0}}>📎</button>
                 <div style={{flex:1,display:"flex",alignItems:"flex-end",background:"#fff",borderRadius:20,paddingLeft:14,paddingRight:6,minHeight:36,maxHeight:120,boxShadow:"0 1px 3px rgba(0,0,0,0.1)"}}>
-                  <input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")e.preventDefault();}} placeholder="Xabar..." style={{flex:1,background:"transparent",border:"none",color:"#000",fontSize:16,outline:"none",padding:"8px 0",fontFamily:"inherit",minWidth:0}}/>
-                  <button onClick={()=>{setStickers(p=>!p);setMediaPanel(false);}} style={{background:"none",border:"none",fontSize:22,cursor:"pointer",padding:"4px",color:stickers?"#007aff":"#8e8e93",flexShrink:0,lineHeight:1,marginBottom:2}}>🙂</button>
+                  <textarea value={input} onChange={e=>setInput(e.target.value)} placeholder="Xabar..." rows={1} style={{flex:1,background:"transparent",border:"none",color:"#000",fontSize:16,outline:"none",padding:"8px 0",fontFamily:"inherit",minWidth:0,resize:"none",maxHeight:80,overflowY:"auto",lineHeight:"1.4",WebkitUserSelect:"text",transform:"translateZ(0)"}}/>
                 </div>
-                <button onClick={()=>send(input)} style={{width:34,height:34,marginBottom:1,borderRadius:"50%",background:input.trim()?"#007aff":"#8e8e93",border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,padding:0,transition:"all 0.15s"}}>
-                  <span style={{color:"#fff",fontSize:18,lineHeight:1}}>➤</span>
-                </button>
+                {input.trim() ? (
+                  <button onClick={()=>send(input)} style={{width:34,height:34,marginBottom:1,borderRadius:"50%",background:"#007aff",border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,padding:0}}>
+                    <span style={{color:"#fff",fontSize:18,lineHeight:1}}>➤</span>
+                  </button>
+                ) : (
+                  <button
+                    onMouseDown={async()=>{
+                      try{
+                        const stream = await navigator.mediaDevices.getUserMedia({audio:true});
+                        const mr = new MediaRecorder(stream);
+                        const chunks=[];
+                        mr.ondataavailable=e=>chunks.push(e.data);
+                        mr.onstop=()=>{
+                          stream.getTracks().forEach(t=>t.stop());
+                          const blob = new Blob(chunks,{type:"audio/webm"});
+                          const url = URL.createObjectURL(blob);
+                          const t2 = new Date().toLocaleTimeString("uz",{hour:"2-digit",minute:"2-digit"});
+                          setMsgs(p=>({...p,[chat]:[...(p[chat]||[]),{from:"me",time:t2,voice:true,voiceUrl:url}]}));
+                          setChatVoiceRecording(false);
+                          toast$("🎙️ Ovozli xabar yuborildi","#22c55e");
+                        };
+                        mr.start();
+                        setChatVoiceMR(mr);
+                        setChatVoiceRecording(true);
+                      }catch(e){toast$("Mikrofon ruxsati kerak!","#ef4444");}
+                    }}
+                    onMouseUp={()=>{chatVoiceMR?.stop();}}
+                    onTouchStart={async()=>{
+                      try{
+                        const stream = await navigator.mediaDevices.getUserMedia({audio:true});
+                        const mr = new MediaRecorder(stream);
+                        const chunks=[];
+                        mr.ondataavailable=e=>chunks.push(e.data);
+                        mr.onstop=()=>{
+                          stream.getTracks().forEach(t=>t.stop());
+                          const blob = new Blob(chunks,{type:"audio/webm"});
+                          const url = URL.createObjectURL(blob);
+                          const t2 = new Date().toLocaleTimeString("uz",{hour:"2-digit",minute:"2-digit"});
+                          setMsgs(p=>({...p,[chat]:[...(p[chat]||[]),{from:"me",time:t2,voice:true,voiceUrl:url}]}));
+                          setChatVoiceRecording(false);
+                          toast$("🎙️ Ovozli xabar yuborildi","#22c55e");
+                        };
+                        mr.start();
+                        setChatVoiceMR(mr);
+                        setChatVoiceRecording(true);
+                      }catch(e){toast$("Mikrofon ruxsati kerak!","#ef4444");}
+                    }}
+                    onTouchEnd={()=>{chatVoiceMR?.stop();}}
+                    style={{
+                      width:34,height:34,marginBottom:1,borderRadius:"50%",
+                      background:chatVoiceRecording?"#ef4444":"#22c55e",
+                      border:"none",cursor:"pointer",
+                      display:"flex",alignItems:"center",justifyContent:"center",
+                      flexShrink:0,padding:0,
+                      boxShadow:chatVoiceRecording?"0 0 0 4px rgba(239,68,68,0.3)":"none",
+                      transition:"all 0.2s"
+                    }}>
+                    <span style={{color:"#fff",fontSize:18}}>🎙️</span>
+                  </button>
+                )}
               </>
             )}
+            </div>
           </div>
         </div>
       )}
@@ -1949,52 +3302,44 @@ export default function App() {
         {/* DISCOVER */}
         {tab==="discover"&&(
           <div>
-            {/* SUB TABS: Kartochkalar | Maxsus Qidiruv */}
+            {/* SUB TABS */}
             <div style={{display:"flex",background:"#fff",borderBottom:"1px solid "+C.border,padding:"0 14px"}}>
               {[
-                {k:"cards",icon:"🃏",label:"Yangi foydalanuvchilar"},
+                {k:"cards",icon:"⚙️",label:"Qidiruv Parametrlari"},
                 {k:"search",icon:"🔎",label:"Maxsus Qidiruv"},
               ].map(st=>(
-                <button key={st.k} onClick={()=>setDiscoverSubTab(st.k)} style={{
+                <button key={st.k} onClick={()=>{
+                  setDiscoverSubTab(st.k);
+                  if(st.k==="cards") setShowCardFilter(true);
+                }} style={{
                   flex:1,padding:"11px 0",background:"none",border:"none",
                   borderBottom:discoverSubTab===st.k?"3px solid "+C.accent:"3px solid transparent",
                   cursor:"pointer",fontSize:13,fontWeight:discoverSubTab===st.k?800:400,
                   color:discoverSubTab===st.k?C.accent:C.muted,
                   display:"flex",alignItems:"center",justifyContent:"center",gap:5
                 }}>
-                  <span style={{fontSize:16}}>{st.icon}</span>
-                  {st.label}
+                  {st.icon} {st.label}
                 </button>
               ))}
             </div>
 
-            {/* KARTOCHKALAR */}
+            {/* KARTOCHKALAR + FILTR — to'g'ridan */}
             {discoverSubTab==="cards"&&(
               <>
+                <div style={{height:10}}/>
                 {
                   /* STORIES ROW REMOVED */
                 }
 
-                {/* FILTER SUMMARY BAR — filtr holati + ochish tugmasi */}
+                {/* FILTER TAGS — qo'llanilgan filtrlar */}
                 {(()=>{
                   const hasFilter = cityF!=="Barchasi" || genderF!=="Barchasi" || ageF[0]!==18 || ageF[1]!==99;
+                  if(!hasFilter) return null;
                   return (
-                    <div style={{margin:"0 12px 10px",display:"flex",alignItems:"center",gap:8}}>
-                      <div style={{flex:1,display:"flex",gap:5,flexWrap:"wrap",alignItems:"center"}}>
-                        {cityF!=="Barchasi"&&<div style={{background:C.accent,borderRadius:20,padding:"4px 10px",fontSize:11,fontWeight:700,color:"#fff",display:"flex",alignItems:"center",gap:4}}>📍{cityF}<span onClick={()=>{setCityF("Barchasi");setCardI(0);}} style={{cursor:"pointer",opacity:0.8}}>✕</span></div>}
-                        {genderF!=="Barchasi"&&<div style={{background:C.sky,borderRadius:20,padding:"4px 10px",fontSize:11,fontWeight:700,color:"#fff",display:"flex",alignItems:"center",gap:4}}>{genderF==="ayol"?"👩":"👨"} {genderF}<span onClick={()=>{setGenderF("Barchasi");setCardI(0);}} style={{cursor:"pointer",opacity:0.8}}>✕</span></div>}
-                        {(ageF[0]!==18||ageF[1]!==99)&&<div style={{background:"#8b5cf6",borderRadius:20,padding:"4px 10px",fontSize:11,fontWeight:700,color:"#fff",display:"flex",alignItems:"center",gap:4}}>🎂{ageF[0]}-{ageF[1]}<span onClick={()=>{setAgeF([18,99]);setCardI(0);}} style={{cursor:"pointer",opacity:0.8}}>✕</span></div>}
-                      </div>
-                      <button onClick={()=>setShowCardFilter(true)} style={{
-                        display:"flex",alignItems:"center",gap:5,
-                        background:"linear-gradient(135deg,#ff6eb4,#38bdf8)",
-                        border:"none",borderRadius:20,padding:"7px 14px",
-                        color:"#fff",fontWeight:800,fontSize:12,cursor:"pointer",flexShrink:0,
-                        boxShadow:"0 3px 12px rgba(255,110,180,0.4)",whiteSpace:"nowrap"
-                      }}>
-                        <span style={{fontSize:14}}>⚙️</span>
-                        {hasFilter ? "Filtr ✓" : "Qidiruv Filtiri"}
-                      </button>
+                    <div style={{margin:"10px 12px 10px",display:"flex",gap:5,flexWrap:"wrap",alignItems:"center"}}>
+                      {cityF!=="Barchasi"&&<div style={{background:C.accent,borderRadius:20,padding:"4px 10px",fontSize:11,fontWeight:700,color:"#fff",display:"flex",alignItems:"center",gap:4}}>📍{cityF}<span onClick={()=>{setCityF("Barchasi");setCardI(0);}} style={{cursor:"pointer",opacity:0.8}}>✕</span></div>}
+                      {genderF!=="Barchasi"&&<div style={{background:C.sky,borderRadius:20,padding:"4px 10px",fontSize:11,fontWeight:700,color:"#fff",display:"flex",alignItems:"center",gap:4}}>{genderF==="ayol"?"👩":"👨"} {genderF}<span onClick={()=>{setGenderF("Barchasi");setCardI(0);}} style={{cursor:"pointer",opacity:0.8}}>✕</span></div>}
+                      {(ageF[0]!==18||ageF[1]!==99)&&<div style={{background:"#8b5cf6",borderRadius:20,padding:"4px 10px",fontSize:11,fontWeight:700,color:"#fff",display:"flex",alignItems:"center",gap:4}}>🎂{ageF[0]}-{ageF[1]}<span onClick={()=>{setAgeF([18,99]);setCardI(0);}} style={{cursor:"pointer",opacity:0.8}}>✕</span></div>}
                     </div>
                   );
                 })()}
@@ -2046,12 +3391,16 @@ export default function App() {
                   </div>
                 )}
                 {cur&&(
-                  <div style={{background:"#fff",borderRadius:24,margin:"0 12px 14px",overflow:"hidden",border:"1px solid "+C.border,boxShadow:"0 8px 32px rgba(56,189,248,0.1)",transition:"transform 0.45s,opacity 0.4s",transform:swipe==="right"?"translateX(130%) rotate(22deg)":swipe==="left"?"translateX(-130%) rotate(-22deg)":"none",opacity:swipe?0:1}}>
-                    <div style={{height:320,background:"linear-gradient(180deg,#f0f9ff,#fff0f6)",position:"relative",overflow:"hidden"}}>
+                  <div style={{borderRadius:24,margin:"0 12px 14px",overflow:"hidden",boxShadow:"0 8px 32px rgba(56,189,248,0.1)",transition:"transform 0.45s,opacity 0.4s",transform:swipe==="right"?"translateX(130%) rotate(22deg)":swipe==="left"?"translateX(-130%) rotate(-22deg)":"none",opacity:swipe?0:1,position:"relative"}}>
+                    <div style={{height:480,position:"relative",overflow:"hidden",background:"#111"}}>
                       <div onClick={()=>{setShowUserDetail(cur);setDetailPhotoIdx(0);}} style={{width:"100%",height:"100%",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer"}}>
                         {cur.demoPhoto?<img src={cur.demoPhoto} style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<div style={{fontSize:130}}>{cur.emoji}</div>}
                       </div>
+                      {/* Gradient overlay */}
+                      <div style={{position:"absolute",bottom:0,left:0,right:0,height:200,background:"linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 100%)",pointerEvents:"none"}}/>
+                      {/* Online badge */}
                       {cur.online&&<div style={{position:"absolute",top:14,left:14,background:C.green,borderRadius:20,padding:"4px 10px",fontSize:11,fontWeight:700,color:"#fff"}}>🟢 Online</div>}
+                      {/* 3 dot menu */}
                       <div style={{position:"absolute",top:12,right:12,zIndex:5}}>
                         <button onClick={e=>{e.stopPropagation();setCardMenu(cardMenu===cur.id?null:cur.id);}} style={{width:34,height:34,borderRadius:"50%",background:"rgba(0,0,0,0.4)",border:"none",color:"#fff",fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>•••</button>
                         {cardMenu===cur.id&&(
@@ -2063,18 +3412,17 @@ export default function App() {
                           </div>
                         )}
                       </div>
-                      <div onClick={()=>{setShowUserDetail(cur);setDetailPhotoIdx(0);}} style={{position:"absolute",bottom:12,left:16,background:cur.gender==="ayol"?"rgba(255,110,180,0.88)":"rgba(34,197,94,0.88)",borderRadius:20,padding:"6px 16px",fontSize:12,color:"#fff",fontWeight:700,cursor:"pointer",zIndex:3}}>
-                        {cur.name} {T.aboutInfo} ✍️
+                      {/* Ism + shahar */}
+                      <div onClick={()=>{setShowUserDetail(cur);setDetailPhotoIdx(0);}} style={{position:"absolute",bottom:72,left:16,right:16,cursor:"pointer",zIndex:3}}>
+                        <div style={{fontSize:24,fontWeight:900,color:"#fff",textShadow:"0 2px 8px rgba(0,0,0,0.5)"}}>{cur.name.split(" ")[0]}, {cur.age} {cur.vip&&"👑"}</div>
+                        <div style={{fontSize:13,color:"rgba(255,255,255,0.85)",marginTop:2}}>📍 {cur.city}</div>
                       </div>
-                    </div>
-                    <div style={{padding:"14px 18px 6px"}}>
-                      <div style={{fontSize:24,fontWeight:900}}>{cur.name}, {cur.age}</div>
-                      <div style={{fontSize:13,color:C.muted,marginTop:4}}>📍 {cur.city}</div>
-                    </div>
-                    <div style={{display:"flex",justifyContent:"space-around",padding:"12px 24px 18px",alignItems:"center"}}>
-                      <button onClick={dislike} style={{width:58,height:58,borderRadius:"50%",background:"#f1f5f9",border:"none",fontSize:26,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
-                      <button onClick={()=>{setGiftModal(cur);setGiftNote("");}} style={{width:52,height:52,borderRadius:"50%",background:"linear-gradient(135deg,#f59e0b,#fbbf24)",border:"none",fontSize:22,cursor:"pointer",color:"#fff",display:"flex",alignItems:"center",justifyContent:"center"}}>🎁</button>
-                      <button onClick={()=>like(cur.id)} style={{width:58,height:58,borderRadius:"50%",background:"linear-gradient(135deg,#ff6eb4,#f472b6)",border:"none",fontSize:26,cursor:"pointer",color:"#fff",display:"flex",alignItems:"center",justifyContent:"center"}}>❤️</button>
+                      {/* Tugmalar — foto ichida pastda */}
+                      <div style={{position:"absolute",bottom:12,left:0,right:0,display:"flex",justifyContent:"space-around",alignItems:"center",padding:"0 24px",zIndex:4}}>
+                        <button onClick={dislike} style={{width:56,height:56,borderRadius:"50%",background:"rgba(255,255,255,0.2)",backdropFilter:"blur(10px)",border:"2px solid rgba(255,255,255,0.3)",fontSize:24,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
+                        <button onClick={()=>{setGiftModal(cur);setGiftNote("");}} style={{width:50,height:50,borderRadius:"50%",background:"linear-gradient(135deg,#f59e0b,#fbbf24)",border:"none",fontSize:20,cursor:"pointer",color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 4px 12px rgba(245,158,11,0.5)"}}>🎁</button>
+                        <button onClick={()=>like(cur.id)} style={{width:56,height:56,borderRadius:"50%",background:"linear-gradient(135deg,#ff6eb4,#f472b6)",border:"none",fontSize:24,cursor:"pointer",color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 4px 12px rgba(255,110,180,0.5)"}}>❤️</button>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -2084,42 +3432,204 @@ export default function App() {
             {/* MAXSUS QIDIRUV */}
             {discoverSubTab==="search"&&(
               <AdvancedSearch
-                matches={matches}
-                msgs={msgs}
-                blocked={blocked}
+                matches={matches} msgs={msgs} blocked={blocked}
                 onOpenChat={(userId)=>setChat(userId)}
                 onOpenProfile={(user)=>{setShowUserDetail(user);setDetailPhotoIdx(0);}}
-                onLike={(userId)=>like(userId)}
-                onDislike={dislike}
+                onLike={(userId)=>like(userId)} onDislike={dislike}
                 onGift={(user)=>{setGiftModal(user);setGiftNote("");}}
                 onWave={(user)=>setShowWaveModal(user)}
                 onBlock={(user)=>setShowBlockModal(user)}
               />
             )}
+
           </div>
         )}
 
         {/* LICHKA */}
         {tab==="matches"&&(
           <div style={{padding:"12px 14px"}}>
-            <div style={{fontSize:16,fontWeight:800,marginBottom:10}}>💞 Matchlar ({matchUsers.length})</div>
-            {matchUsers.length===0&&<div style={{color:C.muted,textAlign:"center",padding:40}}>{T.noMatch}</div>}
-            {matchUsers.map(u=>(
-              <div key={u.id} style={{background:"#fff",borderRadius:16,padding:"10px 12px",marginBottom:8,border:"1px solid "+C.border,display:"flex",alignItems:"center",gap:11}}>
-                <div onClick={()=>{setShowUserDetail(u);setDetailPhotoIdx(0);}} style={{position:"relative",width:52,height:52,flexShrink:0,cursor:"pointer"}}>
-                  <div style={{width:52,height:52,borderRadius:"50%",overflow:"hidden",border:"2px solid "+C.accent}}>
-                    {u.demoPhoto?<img src={u.demoPhoto} style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<span style={{fontSize:30}}>{u.emoji}</span>}
-                  </div>
-                  <div style={{width:10,height:10,borderRadius:"50%",background:u.online?C.green:C.muted,position:"absolute",bottom:0,right:0,border:"2px solid #fff"}}/>
-                </div>
-                <div onClick={()=>setChat(u.id)} style={{flex:1,cursor:"pointer"}}>
-                  <div style={{fontWeight:800,fontSize:14}}>{u.name}, {u.age} {u.vip&&"👑"}</div>
-                  <div style={{fontSize:12,color:C.muted}}>{(msgs[u.id]||[]).slice(-1)[0]?.text||T.writeMsg}</div>
-                  <Stars r={u.rating||4.5}/>
-                </div>
-                <button onClick={e=>{e.stopPropagation();setShowBlockModal(u);}} style={{background:"#fff5f5",border:"none",borderRadius:8,padding:"4px 8px",fontSize:13,cursor:"pointer"}}>🚫</button>
+
+            {/* SARLAVHA + ONLINE FILTER */}
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+              <div style={{fontSize:16,fontWeight:800}}>💬 Yozishmalar ({matchUsers.length})</div>
+              <button onClick={()=>setShowOnlineOnly(p=>!p)} style={{
+                background:showOnlineOnly?"#22c55e":"#f1f5f9",
+                border:"none",borderRadius:20,padding:"5px 12px",
+                color:showOnlineOnly?"#fff":C.muted,
+                fontSize:11,fontWeight:700,cursor:"pointer",
+                display:"flex",alignItems:"center",gap:5
+              }}>
+                <div style={{width:7,height:7,borderRadius:"50%",background:showOnlineOnly?"#fff":"#22c55e"}}/>
+                Onlayn
+              </button>
+            </div>
+
+            {/* QIDIRUV */}
+            {matchUsers.length>0&&(
+              <div style={{
+                display:"flex",alignItems:"center",gap:8,
+                background:"#f1f5f9",borderRadius:12,
+                padding:"8px 12px",marginBottom:10
+              }}>
+                <span style={{fontSize:14,color:C.muted}}>🔍</span>
+                <input
+                  value={matchSearch}
+                  onChange={e=>setMatchSearch(e.target.value)}
+                  placeholder="Ism bo'yicha qidirish..."
+                  style={{flex:1,background:"transparent",border:"none",
+                    color:C.text,fontSize:16,outline:"none",fontFamily:"inherit"}}
+                />
+                {matchSearch&&<button onClick={()=>setMatchSearch("")} style={{background:"none",border:"none",color:C.muted,cursor:"pointer",fontSize:14}}>✕</button>}
               </div>
-            ))}
+            )}
+
+            {/* JINS FILTRI */}
+            {matchUsers.length>0&&(
+              <div style={{display:"flex",background:"#f1f5f9",borderRadius:16,padding:4,marginBottom:12}}>
+                {[
+                  {k:"all",   label:"🌐 Barchasi", activeColor:"#1e293b"},
+                  {k:"ayol",  label:"👩 Ayollar",  activeColor:"#ff6eb4"},
+                  {k:"erkak", label:"👨 Erkaklar", activeColor:"#1e293b"},
+                ].map(t=>{
+                  const count = t.k==="all" ? matchUsers.length : matchUsers.filter(u=>u.gender===t.k).length;
+                  return (
+                    <button key={t.k} onClick={()=>setMatchGenderTab(t.k)} style={{
+                      flex:1,padding:"8px 4px",borderRadius:12,border:"none",cursor:"pointer",
+                      background:matchGenderTab===t.k?"#fff":"transparent",
+                      color:matchGenderTab===t.k?t.activeColor:C.muted,
+                      fontWeight:matchGenderTab===t.k?800:500,
+                      fontSize:12,
+                      boxShadow:matchGenderTab===t.k?"0 2px 8px rgba(0,0,0,0.08)":"none",
+                      transition:"all 0.2s"
+                    }}>
+                      {t.label} <span style={{fontSize:10,opacity:0.7}}>({count})</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {matchUsers.length===0&&<div style={{color:C.muted,textAlign:"center",padding:40}}>{T.noMatch}</div>}
+
+            {(()=>{
+              // Filtr
+              let filtered = matchGenderTab==="all" ? matchUsers : matchUsers.filter(u=>u.gender===matchGenderTab);
+              if(showOnlineOnly) filtered = filtered.filter(u=>u.online);
+              if(matchSearch.trim()) filtered = filtered.filter(u=>u.name.toLowerCase().includes(matchSearch.toLowerCase()));
+              const sorted = [...filtered].sort((a,b)=>{
+                const aPinned = pinnedChats.includes(a.id);
+                const bPinned = pinnedChats.includes(b.id);
+                if(aPinned && !bPinned) return -1;
+                if(!aPinned && bPinned) return 1;
+                const aMsg = (msgs[a.id]||[]).slice(-1)[0];
+                const bMsg = (msgs[b.id]||[]).slice(-1)[0];
+                if(!aMsg && !bMsg) return 0;
+                if(!aMsg) return 1;
+                if(!bMsg) return -1;
+                return aMsg.time < bMsg.time ? 1 : -1;
+              });
+
+              const renderUser = (u) => {
+                const isPinned = pinnedChats.includes(u.id);
+                const isArchived = archivedChats.includes(u.id);
+                const unread = (msgs[u.id]||[]).filter(m=>m.from!=="me").length;
+                const lastMsg = (msgs[u.id]||[]).slice(-1)[0];
+                const isTyping = typingUsers[u.id];
+
+                // Vaqt formatlash
+                const getTime = () => {
+                  if(!lastMsg) return "";
+                  const now = Date.now();
+                  const diff = now - (lastMsg.ts || now);
+                  if(diff < 60000) return "hozirgina";
+                  if(diff < 3600000) return Math.floor(diff/60000)+"daq";
+                  if(diff < 86400000) return Math.floor(diff/3600000)+"soat";
+                  return Math.floor(diff/86400000)+"kun";
+                };
+
+                // Oxirgi xabar holati
+                const getMsgStatus = () => {
+                  if(!lastMsg || lastMsg.from !== "me") return null;
+                  return lastMsg.read
+                    ? <span style={{color:"#38bdf8",fontSize:11}}>✓✓</span>
+                    : <span style={{color:C.muted,fontSize:11}}>✓</span>;
+                };
+
+                return (
+                  <div key={u.id} style={{
+                    background: isPinned?"linear-gradient(135deg,#fff0f6,#f0f9ff)":"#fff",
+                    borderRadius:16,padding:"10px 12px",marginBottom:8,
+                    border:"1px solid "+(isPinned?C.accent:u.gender==="ayol"?"#fce7f3":"#e0f2fe"),
+                    display:"flex",alignItems:"center",gap:11,position:"relative"
+                  }}>
+                    {isPinned&&<div style={{position:"absolute",top:6,right:8,fontSize:10,color:C.accent}}>📌</div>}
+
+                    {/* Avatar */}
+                    <div onClick={()=>{setShowUserDetail(u);setDetailPhotoIdx(0);}} style={{position:"relative",flexShrink:0,cursor:"pointer"}}>
+                      <div style={{width:52,height:52,borderRadius:"50%",overflow:"hidden",
+                        border:"2px solid "+(u.gender==="ayol"?"#ff6eb4":"#38bdf8")}}>
+                        {u.demoPhoto?<img src={u.demoPhoto} style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<span style={{fontSize:30}}>{u.emoji}</span>}
+                      </div>
+                      {/* Online dot */}
+                      <div style={{width:12,height:12,borderRadius:"50%",
+                        background:u.online?"#22c55e":"#cbd5e1",
+                        position:"absolute",bottom:0,right:0,border:"2px solid #fff",
+                        boxShadow:u.online?"0 0 6px #22c55e":""}}/>
+                    </div>
+
+                    {/* Mazmun */}
+                    <div onClick={()=>setChat(u.id)} style={{flex:1,cursor:"pointer",minWidth:0}}>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                        <div style={{fontWeight:800,fontSize:14,color:C.text}}>
+                          {u.name.split(" ")[0]}, {u.age} {u.vip&&"👑"}
+                        </div>
+                        <div style={{fontSize:10,color:C.muted,flexShrink:0,display:"flex",alignItems:"center",gap:3}}>
+                          {getMsgStatus()} {getTime()}
+                        </div>
+                      </div>
+                      <div style={{fontSize:12,color:isTyping?"#22c55e":C.muted,
+                        overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",
+                        fontStyle:isTyping?"italic":"normal",marginTop:2}}>
+                        {isTyping ? "✍️ yozmoqda..." :
+                          lastMsg ? (lastMsg.voice ? "🎙️ Ovozli xabar" :
+                          lastMsg.from==="me" ? "Siz: "+lastMsg.text : lastMsg.text)
+                          : T.writeMsg}
+                      </div>
+                    </div>
+
+                    {/* O'ng: unread + pin */}
+                    <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:5,flexShrink:0}}>
+                      {unread > 0 ? (
+                        <div style={{width:22,height:22,borderRadius:"50%",background:"#22c55e",
+                          display:"flex",alignItems:"center",justifyContent:"center",
+                          fontSize:10,fontWeight:900,color:"#fff"}}>
+                          {unread>99?"99+":unread}
+                        </div>
+                      ) : <div style={{width:22}}/>}
+                      <button onClick={e=>{e.stopPropagation();
+                        setPinnedChats(p=>isPinned?p.filter(id=>id!==u.id):[...p,u.id]);
+                        toast$(isPinned?"Pin olib tashlandi":"📌 Pinlandi!",C.accent);
+                      }} style={{background:"none",border:"none",fontSize:13,cursor:"pointer",
+                        color:isPinned?C.accent:C.muted,padding:2}}>📌</button>
+                    </div>
+                  </div>
+                );
+              };
+
+              return (
+                <>
+                  {sorted.length===0&&(
+                    <div style={{textAlign:"center",padding:40,color:C.muted}}>
+                      <div style={{fontSize:36,marginBottom:8}}>💬</div>
+                      <div style={{fontSize:13}}>
+                        {matchSearch?"Topilmadi":showOnlineOnly?"Onlayn do'st yo'q":"Hali yozishmalar yo'q"}
+                      </div>
+                    </div>
+                  )}
+                  {sorted.map(renderUser)}
+                </>
+              );
+            })()}
           </div>
         )}
 
@@ -2166,23 +3676,155 @@ export default function App() {
                 </>
               )}
             </div>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-              <div style={{fontWeight:900,fontSize:18}}>Uchrashuvlar</div>
-              <div style={{display:"flex",gap:6}}>
-                <button onClick={()=>{
-                  if(lastInviteTime&&(Date.now()-lastInviteTime)<24*60*60*1000){
-                    const r=Math.ceil((24*60*60*1000-(Date.now()-lastInviteTime))/3600000);
-                    toast$("⏳ "+r+" soatdan so'ng!","#f59e0b");return;
-                  }
-                  setShowCreateEvent(true);
-                }} style={{background:"linear-gradient(90deg,#6366f1,#8b5cf6)",border:"none",borderRadius:20,padding:"7px 12px",color:"#fff",fontWeight:800,fontSize:11,cursor:"pointer"}}>➕ Elon</button>
-                <button onClick={()=>setShowGoFilter(true)} style={{background:"linear-gradient(90deg,#38bdf8,#6366f1)",border:"none",borderRadius:20,padding:"7px 12px",color:"#fff",fontWeight:800,fontSize:11,cursor:"pointer"}}>🔍 Filtr</button>
+
+            {/* GO TAVSIF BANNERI */}
+            <div style={{
+              background:"linear-gradient(135deg,#fff0f6,#e0f2fe)",
+              borderRadius:16,padding:"14px 16px",marginBottom:12,
+              border:"1px solid #fbcfe8"
+            }}>
+              <div style={{fontWeight:900,fontSize:15,color:C.accent,marginBottom:4}}>
+                🚀 GO — Real uchrashuv va Sayohat
+              </div>
+              <div style={{fontSize:12,color:"#64748b",lineHeight:1.7}}>
+                Bu yerda siz kinoga, tushlikka, parkka yoki sayohatga birga borish uchun e'lon qo'yishingiz mumkin. Manzilingizni yoqing va atrofdagilarni toping. Taklifga qo'shilish uchun so'rov yuboring — egasi ruxsat bersa, yozishmalar boshlanadi! 🎯
               </div>
             </div>
-            <div style={{display:"flex",gap:5,marginBottom:12,overflowX:"auto",paddingBottom:4}}>
-              {["Barchasi","🎬 Kino","🍽️ Ovqatlanish","🌳 Parkka","🚗 Avtomobilda sayr","💪 GYM zal","🛍️ Shoping"].map(f=><button key={f} onClick={()=>setGoFilter(f)} style={{...chipStyle(goFilter===f),flexShrink:0,whiteSpace:"nowrap"}}>{f}</button>)}
+
+            {/* TAB: Barcha | Mening */}
+            <div style={{display:"flex",background:"#f1f5f9",borderRadius:16,padding:4,marginBottom:12}}>
+              <button onClick={()=>setGoMainTab("all")} style={{
+                flex:1,padding:"9px 4px",borderRadius:12,border:"none",cursor:"pointer",
+                background:goMainTab==="all"?"#fff":"transparent",
+                color:"#1e293b",
+                fontWeight:goMainTab==="all"?800:500,fontSize:13,
+                boxShadow:goMainTab==="all"?"0 2px 8px rgba(0,0,0,0.08)":"none",
+                transition:"all 0.2s"
+              }}>🌐 Barcha e'lonlar</button>
+              <button onClick={()=>setGoMainTab("mine")} style={{
+                flex:1,padding:"9px 4px",borderRadius:12,border:"none",cursor:"pointer",
+                background:goMainTab==="mine"?"#fff":"transparent",
+                color:"#1e293b",
+                fontWeight:goMainTab==="mine"?800:500,fontSize:13,
+                boxShadow:goMainTab==="mine"?"0 2px 8px rgba(0,0,0,0.08)":"none",
+                transition:"all 0.2s"
+              }}>📋 Mening e'lonlarim</button>
             </div>
-            {goInvites.filter(inv=>{
+
+            {/* MENING E'LONLARIM */}
+            {goMainTab==="mine"&&(()=>{
+              const myEvs = goInvites.filter(inv=>inv.mine || String(inv.userId)===String(myUserId));
+              const now = new Date();
+              const active = myEvs.filter(inv=>{
+                if(!inv.date||inv.date==="—") return true;
+                const d = new Date(inv.date);
+                return isNaN(d) || d >= now;
+              });
+              const old = myEvs.filter(inv=>{
+                if(!inv.date||inv.date==="—") return false;
+                const d = new Date(inv.date);
+                return !isNaN(d) && d < now;
+              });
+
+              return (
+                <>
+                  {/* + Elon tugmasi */}
+                  <button onClick={()=>{
+                    if(lastInviteTime&&(Date.now()-lastInviteTime)<24*60*60*1000){
+                      const r=Math.ceil((24*60*60*1000-(Date.now()-lastInviteTime))/3600000);
+                      toast$("⏳ "+r+" soatdan so'ng!","#f59e0b");return;
+                    }
+                    setShowCreateEvent(true);
+                  }} style={{
+                    width:"100%",padding:"12px",marginBottom:12,
+                    borderRadius:14,background:"linear-gradient(135deg,#6366f1,#8b5cf6)",
+                    border:"none",color:"#fff",fontWeight:800,fontSize:14,
+                    cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6
+                  }}>➕ Elon qo'shish</button>
+
+                  {myEvs.length===0 ? (
+                    <div style={{textAlign:"center",padding:"30px 20px",color:C.muted}}>
+                      <div style={{fontSize:40,marginBottom:10}}>🚀</div>
+                      <div style={{fontWeight:700,fontSize:15,marginBottom:6}}>Hali e'lon yo'q</div>
+                      <div style={{fontSize:13}}>Yuqoridagi tugma orqali birinchi e'loningizni joylang!</div>
+                    </div>
+                  ) : null}
+
+                  {(()=>{
+                  const renderInv = (inv, isOld) => (
+                <div key={inv.id} style={{
+                  background:isOld?"#f8fafc":"#fff",
+                  borderRadius:16,padding:"14px",marginBottom:10,
+                  border:"1px solid "+(isOld?C.border:inv.urgent?"#f97316":C.accent+"44"),
+                  opacity:isOld?0.7:1
+                }}>
+                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+                    <div style={{
+                      background:isOld?"#f1f5f9":C.accent+"18",
+                      borderRadius:10,padding:"4px 10px",
+                      fontSize:11,fontWeight:700,
+                      color:isOld?C.muted:C.accent
+                    }}>{inv.type}</div>
+                    {inv.urgent&&!isOld&&<span style={{background:"#ef4444",color:"#fff",fontSize:9,fontWeight:900,borderRadius:20,padding:"2px 7px"}}>🚨 SHOSHILINCH</span>}
+                    {isOld&&<span style={{background:"#f1f5f9",color:C.muted,fontSize:9,fontWeight:700,borderRadius:20,padding:"2px 7px"}}>⏰ Tugagan</span>}
+                  </div>
+                  <div style={{fontWeight:700,fontSize:14,marginBottom:4}}>{inv.text?.split(" — ")[0]}</div>
+                  {inv.text?.includes(" — ")&&<div style={{fontSize:12,color:C.muted,marginBottom:6}}>{inv.text.split(" — ")[1]}</div>}
+                  <div style={{display:"flex",gap:10,fontSize:11,color:C.muted,marginBottom:8}}>
+                    <span>📅 {inv.date}</span>
+                    <span>🕐 {inv.time}</span>
+                    <span>📍 {inv.city}</span>
+                  </div>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                    <div style={{display:"flex",gap:10,fontSize:12,color:C.muted,alignItems:"center"}}>
+                      <span>❤️ {inv.likes} like</span>
+                      <button onClick={()=>setShowGoComments(inv.id)} style={{background:"#f0f9ff",border:"1px solid "+C.border,borderRadius:20,padding:"3px 10px",fontSize:11,fontWeight:700,cursor:"pointer",color:C.text,display:"flex",alignItems:"center",gap:3}}>
+                        💬 {(goComments[inv.id]||[]).length}
+                      </button>
+                    </div>
+                    {!isOld&&(
+                      <button onClick={()=>{
+                        setGoInvites(p=>p.filter(i=>i.id!==inv.id));
+                        toast$("E'lon o'chirildi","#ef4444");
+                      }} style={{background:"#fff5f5",border:"1px solid #fecaca",borderRadius:20,padding:"4px 12px",fontSize:11,fontWeight:700,color:"#ef4444",cursor:"pointer"}}>🗑️ O'chirish</button>
+                    )}
+                  </div>
+                </div>
+              );
+
+              return (
+                <>
+                  {active.length>0&&(
+                    <>
+                      <div style={{fontSize:12,fontWeight:800,color:C.accent,marginBottom:8,display:"flex",alignItems:"center",gap:6}}>
+                        <div style={{width:8,height:8,borderRadius:"50%",background:C.green}}/>
+                        Aktual e'lonlar ({active.length})
+                      </div>
+                      {active.map(inv=>renderInv(inv,false))}
+                    </>
+                  )}
+                  {old.length>0&&(
+                    <>
+                      <div style={{fontSize:12,fontWeight:800,color:C.muted,marginBottom:8,marginTop:12,display:"flex",alignItems:"center",gap:6}}>
+                        <div style={{width:8,height:8,borderRadius:"50%",background:C.muted}}/>
+                        Eski e'lonlar ({old.length})
+                      </div>
+                      {old.map(inv=>renderInv(inv,true))}
+                    </>
+                  )}
+                  </>);
+                  })()}
+                </>
+              );
+            })()}
+
+            {/* BARCHA E'LONLAR */}
+            {goMainTab==="all"&&(
+              <>
+              <div style={{display:"flex",gap:5,marginBottom:12,overflowX:"auto",paddingBottom:4}}>
+                {["Barchasi","🎬 Kino","🍽️ Ovqatlanish","🌳 Parkka","🚗 Avtomobilda sayr","💪 GYM zal","🛍️ Shoping"].map(f=><button key={f} onClick={()=>setGoFilter(f)} style={{...chipStyle(goFilter===f),flexShrink:0,whiteSpace:"nowrap"}}>{f}</button>)}
+              </div>
+              {goInvites.filter(inv=>{
               const typeOk=goFilter==="Barchasi"||inv.type===goFilter;
               const genderOk=goGenderFilter==="barchasi"||inv.audience===goGenderFilter||inv.audience==="barchasi";
               const cityOk=goCityFilter==="Barchasi"||inv.city===goCityFilter||inv.city?.includes(goCityFilter);
@@ -2194,7 +3836,18 @@ export default function App() {
                     {inv.demoPhoto?<img src={inv.demoPhoto} style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<span style={{fontSize:26}}>👤</span>}
                   </div>
                   <div style={{flex:1}}>
-                    <div style={{fontWeight:800,fontSize:14}}>{inv.name}</div>
+                    <div style={{fontWeight:800,fontSize:14,display:"flex",alignItems:"center",gap:6}}>
+                      {inv.name}
+                      {inv.urgent&&(
+                        <span style={{
+                          background:"linear-gradient(135deg,#ef4444,#f97316)",
+                          color:"#fff",fontSize:9,fontWeight:900,
+                          borderRadius:20,padding:"2px 7px",
+                          animation:"pulse 1s infinite",
+                          letterSpacing:0.5
+                        }}>🚨 SHOSHILINCH</span>
+                      )}
+                    </div>
                     <div style={{fontSize:11,color:C.muted}}>📍 {inv.city}</div>
                   </div>
                   <div style={{background:C.accent+"18",borderRadius:12,padding:"4px 10px",fontSize:12,fontWeight:700,color:C.accent}}>{inv.type}</div>
@@ -2204,11 +3857,22 @@ export default function App() {
                   <div style={{display:"flex",gap:8}}><span style={{fontSize:12,color:C.muted}}>📅 {inv.date}</span><span style={{fontSize:12,color:C.muted}}>🕐 {inv.time}</span></div>
                   <div style={{display:"flex",gap:8}}>
                     <button onClick={()=>setGoInvites(p=>p.map(i=>i.id===inv.id?{...i,likes:i.liked?i.likes-1:i.likes+1,liked:!i.liked}:i))} style={{background:inv.liked?C.accent:"#f0f9ff",border:"1px solid "+(inv.liked?C.accent:C.border),borderRadius:20,padding:"4px 12px",fontSize:12,fontWeight:700,cursor:"pointer",color:inv.liked?"#fff":C.text}}>❤️ {inv.likes}</button>
-                    <button onClick={()=>{setMatches(p=>[...p,inv.userId]);toast$("Taklif qabul qilindi!",C.green);}} style={{background:"linear-gradient(90deg,#ff6eb4,#38bdf8)",border:"none",borderRadius:20,padding:"4px 12px",fontSize:12,fontWeight:700,cursor:"pointer",color:"#fff"}}>Qoshilish</button>
+                    <button onClick={()=>setShowGoComments(inv.id)} style={{background:"#f0f9ff",border:"1px solid "+C.border,borderRadius:20,padding:"4px 12px",fontSize:12,fontWeight:700,cursor:"pointer",color:C.text,display:"flex",alignItems:"center",gap:4}}>
+                      💬 {(goComments[inv.id]||[]).length}
+                    </button>
+                    <button onClick={()=>{
+                      // Post egasiga so'rov yuborish
+                      // Bildirishnoma
+                      toast$("✅ So'rovingiz yuborildi! Javob kutilmoqda...","#22c55e");
+                      // Demo: 2 soniyadan keyin post egasiga modal keladi
+                      setTimeout(()=>setShowGoRequestModal({inv}), 2000);
+                    }} style={{background:"linear-gradient(90deg,#ff6eb4,#38bdf8)",border:"none",borderRadius:20,padding:"4px 12px",fontSize:12,fontWeight:700,cursor:"pointer",color:"#fff"}}>Qoshilish</button>
                   </div>
                 </div>
               </div>
             ))}
+            </>
+            )}
             {/* GO FILTER MODAL */}
             {showGoFilter&&(
               <div style={{...ov,zIndex:350}} onClick={()=>setShowGoFilter(false)}>
@@ -2264,6 +3928,59 @@ export default function App() {
                     <div style={{flex:1}}><label style={{fontSize:11,color:C.muted,display:"block",marginBottom:4}}>📅 Sana:</label><input value={eventForm.date} onChange={e=>setEventForm(p=>({...p,date:e.target.value}))} placeholder="Bugun" style={{width:"100%",background:"#f0f9ff",border:"1px solid "+C.border,borderRadius:10,padding:"7px 10px",color:C.text,fontSize:12,outline:"none",boxSizing:"border-box"}}/></div>
                     <div style={{flex:1}}><label style={{fontSize:11,color:C.muted,display:"block",marginBottom:4}}>🕐 Vaqt:</label><input value={eventForm.time} onChange={e=>setEventForm(p=>({...p,time:e.target.value}))} placeholder="19:00" style={{width:"100%",background:"#f0f9ff",border:"1px solid "+C.border,borderRadius:10,padding:"7px 10px",color:C.text,fontSize:12,outline:"none",boxSizing:"border-box"}}/></div>
                   </div>
+
+                  {/* SHOSHILINCH GO TOGGLE */}
+                  <div onClick={()=>setEventForm(p=>({...p,urgent:!p.urgent}))} style={{
+                    display:"flex",alignItems:"center",gap:12,
+                    padding:"12px 14px",marginBottom:10,
+                    borderRadius:14,cursor:"pointer",
+                    background:eventForm.urgent?"linear-gradient(135deg,#fff7ed,#fef2f2)":"#f8fafc",
+                    border:"1.5px solid "+(eventForm.urgent?"#f97316":C.border),
+                    transition:"all 0.2s"
+                  }}>
+                    <div style={{fontSize:22}}>🚨</div>
+                    <div style={{flex:1}}>
+                      <div style={{fontWeight:700,fontSize:13,color:eventForm.urgent?"#ea580c":C.text}}>Shoshilinch GO</div>
+                      <div style={{fontSize:11,color:C.muted,marginTop:1}}>1 soat ichida jo'nash — tezkor hamroh topish</div>
+                    </div>
+                    <div style={{
+                      width:44,height:24,borderRadius:12,
+                      background:eventForm.urgent?"#f97316":"#e2e8f0",
+                      position:"relative",transition:"background 0.3s",flexShrink:0
+                    }}>
+                      <div style={{
+                        position:"absolute",top:2,
+                        left:eventForm.urgent?22:2,
+                        width:20,height:20,borderRadius:"50%",
+                        background:"#fff",boxShadow:"0 2px 4px rgba(0,0,0,0.2)",
+                        transition:"left 0.3s"
+                      }}/>
+                    </div>
+                  </div>
+                  {/* KIM KORSIN */}
+                  <div style={{marginBottom:12}}>
+                    <label style={{fontSize:12,color:C.muted,display:"block",marginBottom:8,fontWeight:700}}>👁️ Bu e'lonni kimlar ko'rsin?</label>
+                    <div style={{display:"flex",gap:8}}>
+                      {[
+                        {v:"barchasi", icon:"🌐", label:"Barchasi"},
+                        {v:"ayollar",  icon:"👩", label:"Ayollar"},
+                        {v:"erkaklar", icon:"👨", label:"Erkaklar"},
+                      ].map(opt=>(
+                        <button key={opt.v} onClick={()=>setEventForm(p=>({...p,audience:opt.v}))} style={{
+                          flex:1,padding:"9px 4px",borderRadius:12,border:"2px solid",
+                          borderColor:eventForm.audience===opt.v?C.accent:C.border,
+                          background:eventForm.audience===opt.v?"linear-gradient(135deg,#fff0f6,#e0f2fe)":"#f8fafc",
+                          color:eventForm.audience===opt.v?C.accent:C.text,
+                          fontWeight:eventForm.audience===opt.v?800:500,
+                          fontSize:12,cursor:"pointer"
+                        }}>
+                          <div style={{fontSize:18,marginBottom:2}}>{opt.icon}</div>
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
                   <div style={{background:"#fef2f2",border:"1px solid #fecaca",borderRadius:12,padding:"9px 12px",marginBottom:12,fontSize:11,color:"#dc2626"}}>Taqiqlangan: dacha, tog, uy, mehmonxona takliflari ochiriladi</div>
                   <button onClick={()=>{
                     if(!eventForm.title.trim()){toast$("Elon nomini kiriting!","#ef4444");return;}
@@ -2273,7 +3990,7 @@ export default function App() {
                     if(hb){toast$("⚠️ Haqoratli so'z!","#ef4444");return;}
                     const now2=Date.now();
                     if(lastInviteTime&&(now2-lastInviteTime)<24*60*60*1000){toast$("⏳ 24 soat kutish kerak!","#ef4444");return;}
-                    const newEv={id:now2,userId:myUserId||"me",name:profile?.name||"Men",demoPhoto:profilePhoto||null,type:eventForm.type,text:eventForm.title+(eventForm.desc?" — "+eventForm.desc:""),city:eventForm.location||profile?.city||"Toshkent",time:eventForm.time||"—",date:eventForm.date||"—",audience:eventForm.audience,likes:0,mine:true};
+                    const newEv={id:now2,userId:myUserId||"me",name:profile?.name||"Men",demoPhoto:profilePhoto||null,type:eventForm.type,text:eventForm.title+(eventForm.desc?" — "+eventForm.desc:""),city:eventForm.location||profile?.city||"Toshkent",time:eventForm.time||"—",date:eventForm.date||"—",audience:eventForm.audience,likes:0,mine:true,urgent:eventForm.urgent||false};
                     setGoInvites(p=>[newEv,...p]);
                     // Supabase ga saqlash
                     if(sb && myUserId) {
@@ -2337,6 +4054,7 @@ export default function App() {
               {icon:"💡",label:"Taklif va shikoyatlar",sub:"Fikr va takliflaringizni yuboring",color:C.green,action:()=>toast$("Rahmat!",C.green)},
               {icon:"📋",label:"Foydalanish shartlari",sub:"Qoidalar va maxfiylik",color:C.muted,action:()=>toast$("Tez orada!",C.muted)},
               {icon:"⭐",label:"Ilovani baholash",sub:"App Store da baho bering",color:C.gold,action:()=>toast$("Rahmat! 💕",C.gold)},
+              {icon:"🔐",label:"Admin Panel",sub:"Faqat administrator uchun",color:"#7c3aed",action:()=>setShowAdminPanel(true)},
             ].map((item,i)=>(
               <div key={i} onClick={item.action} style={{background:"#fff",borderRadius:16,padding:"13px 16px",marginBottom:8,border:"1px solid "+C.border,display:"flex",alignItems:"center",gap:14,cursor:"pointer"}}>
                 <div style={{width:46,height:46,borderRadius:13,background:item.color+"18",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,flexShrink:0}}>{item.icon}</div>
@@ -2667,21 +4385,6 @@ export default function App() {
                           </div>
                         </div>
 
-                        {/* 3 karta */}
-                        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8}}>
-                          {[
-                            {icon:"❤️",label:"Do'stlar",val:myFriends,color:"#ef4444"},
-                            {icon:"👍",label:"Yoqtirishlar",val:myLikedMe,color:"#f59e0b"},
-                            {icon:"💬",label:"Suhbatlar",val:myChats,color:"#38bdf8"},
-                          ].map((s,i)=>(
-                            <div key={i} style={{background:"#fff",borderRadius:14,padding:"12px 10px",textAlign:"center",border:"1px solid "+C.border}}>
-                              <div style={{fontSize:22,marginBottom:4}}>{s.icon}</div>
-                              <div style={{fontSize:22,fontWeight:900,color:s.color}}>{s.val}</div>
-                              <div style={{fontSize:10,color:C.muted,fontWeight:600}}>{s.label}</div>
-                            </div>
-                          ))}
-                        </div>
-
                         {/* Qo'shimcha */}
                         <div style={{background:"#fff",borderRadius:16,padding:"14px 16px",border:"1px solid "+C.border}}>
                           <div style={{fontWeight:700,fontSize:13,color:C.text,marginBottom:10}}>📈 Batafsil</div>
@@ -2697,13 +4400,190 @@ export default function App() {
                               <span style={{fontWeight:700,fontSize:13,color:C.text}}>{r.val}</span>
                             </div>
                           ))}
+                          {/* TELEGRAM ID */}
+                          {(()=>{
+                            const tg = getTgUser();
+                            const tgId = tg?.id || profile?.tgUserId;
+                            if(!tgId) return null;
+                            return (
+                              <div style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderTop:"1px solid "+C.border,marginTop:4}}>
+                                <span style={{fontSize:18,width:24}}>🔒</span>
+                                <span style={{flex:1,fontSize:12,color:C.muted}}>Sizning ID</span>
+                                <span style={{fontWeight:800,fontSize:13,color:C.text,letterSpacing:1}}>{tgId}</span>
+                              </div>
+                            );
+                          })()}
                         </div>
+
+                        {/* === FAOLIYAT STATISTIKASI === */}
+                        <div style={{fontWeight:900,fontSize:15,color:C.text,marginTop:8,marginBottom:10,display:"flex",alignItems:"center",gap:7}}>
+                          <span style={{fontSize:18}}>🔔</span> Faoliyat tarixi
+                        </div>
+
+                        {/* Kichik kartalar */}
+                        <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:12}}>
+                          {[
+                            {icon:"❤️",label:"Sizni yoqtirganlar",count:7,color:"#ff6eb4",tab:"likes"},
+                            {icon:"👁️",label:"Profilingizni ko'rib chiqdi",count:24,color:"#38bdf8",tab:"views"},
+                            {icon:"🎁",label:"Sizga sovga berganlar",count:3,color:"#f59e0b",tab:"gifts"},
+                            {icon:"🚫",label:"Sizni blokladilar",count:0,color:"#ef4444",tab:"blocks"},
+                            {icon:"💬",label:"Chatlar",count:Object.keys(msgs).filter(k=>msgs[k]?.length>0).length,color:"#8b5cf6",tab:"chats"},
+                          ].map(s=>(
+                            <div key={s.tab} onClick={()=>setActivityTab(s.tab)} style={{
+                              background:activityTab===s.tab?s.color+"11":"#fff",
+                              borderRadius:14,padding:"10px 14px",
+                              border:"1.5px solid "+(activityTab===s.tab?s.color:C.border),
+                              cursor:"pointer",display:"flex",alignItems:"center",gap:12
+                            }}>
+                              <div style={{fontSize:20,flexShrink:0}}>{s.icon}</div>
+                              <div style={{flex:1,fontSize:13,fontWeight:600,color:C.text}}>{s.label}</div>
+                              <div style={{background:s.color,borderRadius:20,padding:"2px 10px",fontSize:13,fontWeight:900,color:"#fff",flexShrink:0}}>{s.count}</div>
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* Davr filtri */}
+                        <div style={{display:"flex",gap:6,marginBottom:12,background:"#f1f5f9",borderRadius:16,padding:4}}>
+                          {[{k:"1d",l:"Bugun"},{k:"7d",l:"7 kun"},{k:"30d",l:"30 kun"},{k:"all",l:"Barchasi"}].map(p=>(
+                            <button key={p.k} onClick={()=>setActivityPeriod(p.k)} style={{
+                              flex:1,padding:"7px 4px",borderRadius:12,border:"none",
+                              background:activityPeriod===p.k?"#fff":"transparent",
+                              color:activityPeriod===p.k?C.accent:C.muted,
+                              fontWeight:700,fontSize:11,cursor:"pointer",
+                              boxShadow:activityPeriod===p.k?"0 2px 8px rgba(0,0,0,0.08)":"none"
+                            }}>{p.l}</button>
+                          ))}
+                        </div>
+
+                        {/* Natijalar ro'yxati */}
+                        {(()=>{
+                          const now = Date.now();
+                          const cutoffs = {"1d":86400000,"7d":7*86400000,"30d":30*86400000,"all":9999*86400000};
+                          const cutoff = now - cutoffs[activityPeriod];
+
+                          const demoActivity = {
+                            likes: [
+                              {user:USERS[0], time: new Date(now-1800000).toISOString()},
+                              {user:USERS[2], time: new Date(now-7200000).toISOString()},
+                              {user:USERS[4], time: new Date(now-86400000).toISOString()},
+                              {user:USERS[1], time: new Date(now-3*86400000).toISOString()},
+                              {user:USERS[3], time: new Date(now-5*86400000).toISOString()},
+                              {user:USERS[6], time: new Date(now-8*86400000).toISOString()},
+                              {user:USERS[5], time: new Date(now-15*86400000).toISOString()},
+                            ],
+                            views: [
+                              {user:USERS[1], count:5, time: new Date(now-900000).toISOString()},
+                              {user:USERS[3], count:3, time: new Date(now-3600000).toISOString()},
+                              {user:USERS[0], count:8, time: new Date(now-10800000).toISOString()},
+                              {user:USERS[5], count:2, time: new Date(now-86400000).toISOString()},
+                              {user:USERS[2], count:4, time: new Date(now-2*86400000).toISOString()},
+                              {user:USERS[7], count:1, time: new Date(now-4*86400000).toISOString()},
+                              {user:USERS[6], count:6, time: new Date(now-10*86400000).toISOString()},
+                            ],
+                            gifts: [
+                              {user:USERS[0], emoji:"🌹", name:"Atirgul", time: new Date(now-3600000).toISOString()},
+                              {user:USERS[4], emoji:"🎁", name:"Sovg'a", time: new Date(now-2*86400000).toISOString()},
+                              {user:USERS[2], emoji:"💍", name:"Uzuk", time: new Date(now-12*86400000).toISOString()},
+                            ],
+                            blocks: [],
+                          };
+
+                          const items = (demoActivity[activityTab]||[]).filter(x=> new Date(x.time).getTime() >= cutoff);
+
+                          if(items.length===0) return (
+                            <div style={{textAlign:"center",padding:"24px",background:"#fff",borderRadius:16,border:"1px solid "+C.border}}>
+                              <div style={{fontSize:36,marginBottom:8}}>
+                                {activityTab==="likes"?"💔":activityTab==="views"?"👁️":activityTab==="gifts"?"🎁":"🚫"}
+                              </div>
+                              <div style={{fontSize:13,color:C.muted}}>
+                                {activityPeriod==="1d"?"Bugun hali faoliyat yo'q":
+                                 activityPeriod==="7d"?"Oxirgi 7 kunda yo'q":
+                                 activityPeriod==="30d"?"Oxirgi 30 kunda yo'q":"Hali faoliyat yo'q"}
+                              </div>
+                            </div>
+                          );
+
+                          return (
+                            <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                              {items.map((item,i)=>{
+                                const u = item.user;
+                                const t = new Date(item.time);
+                                const diff = Date.now() - t.getTime();
+                                const timeStr = diff < 3600000 ? Math.floor(diff/60000)+" daqiqa oldin" :
+                                                diff < 86400000 ? Math.floor(diff/3600000)+" soat oldin" :
+                                                Math.floor(diff/86400000)+" kun oldin";
+                                return (
+                                  <div key={i} onClick={()=>{setShowStats(false);setShowUserDetail(u);setDetailPhotoIdx(0);}} style={{
+                                    background:"#fff",borderRadius:16,padding:"12px 14px",
+                                    border:"1px solid "+C.border,
+                                    display:"flex",alignItems:"center",gap:12,cursor:"pointer",
+                                    boxShadow:"0 2px 8px rgba(0,0,0,0.04)"
+                                  }}>
+                                    <div style={{position:"relative",flexShrink:0}}>
+                                      <div style={{width:52,height:52,borderRadius:"50%",overflow:"hidden",border:"2px solid "+C.border}}>
+                                        {u.demoPhoto?<img src={u.demoPhoto} style={{width:"100%",height:"100%",objectFit:"cover"}}/>:
+                                          <div style={{width:"100%",height:"100%",background:C.accent+"22",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22}}>{u.emoji}</div>}
+                                      </div>
+                                      {u.online&&<div style={{position:"absolute",bottom:0,right:0,width:14,height:14,borderRadius:"50%",background:"#22c55e",border:"2px solid #fff"}}/>}
+                                    </div>
+                                    <div style={{flex:1,minWidth:0}}>
+                                      <div style={{fontWeight:800,fontSize:14,color:C.text}}>{u.name.split(" ")[0]}</div>
+                                      <div style={{fontSize:11,color:C.muted,marginTop:2}}>{u.age} yosh · {u.city}</div>
+                                      <div style={{fontSize:10,color:C.muted,marginTop:1}}>🕐 {timeStr}</div>
+                                    </div>
+                                    <div style={{flexShrink:0,textAlign:"center"}}>
+                                      {activityTab==="likes"&&<div style={{fontSize:24}}>❤️</div>}
+                                      {activityTab==="views"&&(
+                                        <div style={{background:"#e0f2fe",borderRadius:12,padding:"4px 8px"}}>
+                                          <div style={{fontSize:16,fontWeight:900,color:"#0284c7"}}>{item.count}x</div>
+                                          <div style={{fontSize:9,color:"#0284c7"}}>ko'rdi</div>
+                                        </div>
+                                      )}
+                                      {activityTab==="gifts"&&<div style={{fontSize:28}}>{item.emoji}</div>}
+                                      {activityTab==="blocks"&&<div style={{fontSize:22}}>🚫</div>}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          );
+                        })()}
                       </div>
                     )}
 
                     <div style={{background:"#f8fafc",borderRadius:12,padding:"10px 14px",marginTop:4,border:"1px solid "+C.border}}>
                       <div style={{fontSize:10,color:C.muted,textAlign:"center"}}>📊 Statistika har kuni yangilanib boradi · Love Hub v1.0</div>
                     </div>
+
+                    {/* TELEGRAM ID — faqat o'zida ko'rinadi */}
+                    {(()=>{
+                      const tg = getTgUser();
+                      const tgId = tg?.id || form?.tgUserId || profile?.tgUserId;
+                      if(!tgId) return null;
+                      return (
+                        <div style={{
+                          marginTop:8,
+                          background:"#f8fafc",
+                          borderRadius:12,
+                          padding:"10px 14px",
+                          border:"1px solid "+C.border,
+                          display:"flex",
+                          alignItems:"center",
+                          justifyContent:"space-between"
+                        }}>
+                          <div style={{display:"flex",alignItems:"center",gap:8}}>
+                            <span style={{fontSize:14}}>🔒</span>
+                            <div>
+                              <div style={{fontSize:10,color:C.muted,fontWeight:600}}>Sizning Telegram ID raqamingiz</div>
+                              <div style={{fontSize:13,fontWeight:800,color:C.text,letterSpacing:1}}>{tgId}</div>
+                            </div>
+                          </div>
+                          <div style={{fontSize:10,color:C.muted,textAlign:"right"}}>
+                            Faqat<br/>siz ko'rasiz
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </>
                 );
               })()}
@@ -2883,7 +4763,7 @@ export default function App() {
                     <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}}>
                       <span style={{fontSize:11,color:C.muted,fontWeight:600}}>📸 Rasmlarim ({myPhotos.length+( profilePhoto?1:0)}/10)</span>
                       {myPhotos.length<9&&(
-                        <button onClick={()=>profilePhotoRef.current.click()} style={{background:"linear-gradient(135deg,#ff6eb4,#38bdf8)",border:"none",borderRadius:20,padding:"4px 12px",color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer"}}>+ Rasm qo'shish</button>
+                        <button onClick={()=>setShowPhotoWarning(true)} style={{background:"linear-gradient(135deg,#ff6eb4,#38bdf8)",border:"none",borderRadius:20,padding:"4px 12px",color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer"}}>+ Rasm qo'shish</button>
                       )}
                     </div>
                     {myPhotos.length>0&&(
@@ -2908,14 +4788,6 @@ export default function App() {
                       ⚠️ Kamida 1 ta, maksimum 10 ta rasm joylang
                     </div>
                   </div>
-
-                  {/* Taqiqlar */}
-                  <div style={{marginTop:8,background:"#fef2f2",borderRadius:11,padding:"9px 12px",textAlign:"left",border:"1px solid #fecaca"}}>
-                    <div style={{fontSize:10,color:"#dc2626",fontWeight:700,marginBottom:3}}>🚫 Taqiqlangan rasmlar:</div>
-                    <div style={{fontSize:10,color:"#ef4444",lineHeight:1.6}}>
-                      🔞 Intim va yalang'och suratlar · 👙 O'ta ochiq kiyim · 💋 Fahsh holat · 🤳 Boshqa odamning rasmi
-                    </div>
-                  </div>
                 </div>
                 <div style={{marginBottom:10}}>
                   <label style={{fontSize:12,color:C.muted,display:"block",marginBottom:5}}>Jins:</label>
@@ -2924,15 +4796,85 @@ export default function App() {
                     <button onClick={()=>setForm(p=>({...p,gender:"erkak"}))} style={{flex:1,padding:10,borderRadius:12,border:"2px solid "+(form.gender==="erkak"?C.sky:C.border),background:form.gender==="erkak"?C.sky:"#f0f9ff",color:form.gender==="erkak"?"#fff":C.text,fontWeight:700,cursor:"pointer"}}>Erkak</button>
                   </div>
                 </div>
-                {[{k:"name",l:"Ism va familiya",ph:"Ism Familiya"},{k:"city",l:"Shahar",ph:"Toshkent..."},{k:"bio",l:"Bio",ph:"Ozingiz haqida..."}].map(f=>(
-                  <div key={f.k} style={{marginBottom:10}}>
-                    <label style={{fontSize:12,color:C.muted,display:"block",marginBottom:4}}>{f.l}:</label>
-                    <input value={form[f.k]} onChange={e=>setForm(p=>({...p,[f.k]:e.target.value}))} placeholder={f.ph} style={{width:"100%",background:"#f0f9ff",border:"1px solid "+C.border,borderRadius:11,padding:"9px 12px",color:C.text,fontSize:13,outline:"none",boxSizing:"border-box"}}/>
+                {/* ISM VA FAMILIYA — yonma-yon */}
+                {(form.firstName||form.tgUsername)&&getTgUser()&&(
+                  <div style={{background:"linear-gradient(135deg,#e0f2fe,#f0fdf4)",borderRadius:12,padding:"10px 13px",marginBottom:10,border:"1px solid #86efac",display:"flex",alignItems:"center",gap:8}}>
+                    <span style={{fontSize:18}}>✈️</span>
+                    <div style={{fontSize:11,color:"#16a34a",fontWeight:600}}>
+                      Telegram dan avtomatik to'ldirildi. Zarur bo'lsa o'zgartiring.
+                    </div>
                   </div>
-                ))}
+                )}
+                <div style={{display:"flex",gap:10,marginBottom:10}}>
+                  <div style={{flex:1}}>
+                    <label style={{fontSize:12,color:C.muted,display:"block",marginBottom:4}}>Ism:</label>
+                    <input value={form.firstName||""} onChange={e=>setForm(p=>({...p,firstName:e.target.value,name:(e.target.value+" "+(p.lastName||"")).trim()}))} placeholder="Nilufar" style={{width:"100%",background:"#f0f9ff",border:"1px solid "+C.border,borderRadius:11,padding:"9px 12px",color:C.text,fontSize:13,outline:"none",boxSizing:"border-box"}}/>
+                  </div>
+                  <div style={{flex:1}}>
+                    <label style={{fontSize:12,color:C.muted,display:"block",marginBottom:4}}>Familiya:</label>
+                    <input value={form.lastName||""} onChange={e=>setForm(p=>({...p,lastName:e.target.value,name:((p.firstName||"")+" "+e.target.value).trim()}))} placeholder="Karimova" style={{width:"100%",background:"#f0f9ff",border:"1px solid "+C.border,borderRadius:11,padding:"9px 12px",color:C.text,fontSize:13,outline:"none",boxSizing:"border-box"}}/>
+                  </div>
+                </div>
+                {/* SHAHAR */}
+                <div style={{marginBottom:10}}>
+                  <label style={{fontSize:12,color:C.muted,display:"block",marginBottom:4}}>Shahar:</label>
+                  <input value={form.city||""} onChange={e=>setForm(p=>({...p,city:e.target.value}))} placeholder="Toshkent..." style={{width:"100%",background:"#f0f9ff",border:"1px solid "+C.border,borderRadius:11,padding:"9px 12px",color:C.text,fontSize:13,outline:"none",boxSizing:"border-box"}}/>
+                </div>
+                {/* O'ZINGIZ HAQINGIZDA */}
+                <div style={{marginBottom:10}}>
+                  <label style={{fontSize:12,color:C.muted,display:"block",marginBottom:4}}>O'zingiz haqingizda qisqacha:</label>
+                  <input value={form.bio||""} onChange={e=>setForm(p=>({...p,bio:e.target.value}))} placeholder="Ozingiz haqida..." style={{width:"100%",background:"#f0f9ff",border:"1px solid "+C.border,borderRadius:11,padding:"9px 12px",color:C.text,fontSize:13,outline:"none",boxSizing:"border-box"}}/>
+                </div>
                 <div style={{marginBottom:10}}>
                   <label style={{fontSize:12,color:C.muted,display:"block",marginBottom:5}}>💼 Kasbi:</label>
                   <input value={form.kasb||""} onChange={e=>setForm(p=>({...p,kasb:e.target.value}))} placeholder="Dasturchi, muallim, shifokor..." style={{width:"100%",background:"#f0f9ff",border:"1px solid "+C.border,borderRadius:11,padding:"9px 12px",color:C.text,fontSize:13,outline:"none",boxSizing:"border-box"}}/>
+                </div>
+
+                <div style={{marginBottom:10}}>
+                  <label style={{fontSize:12,color:C.muted,display:"block",marginBottom:5}}>✈️ Telegram username (ixtiyoriy):</label>
+                  <div style={{position:"relative"}}>
+                    <span style={{position:"absolute",left:12,top:"50%",transform:"translateY(-50%)",color:C.muted,fontSize:13}}>@</span>
+                    <input
+                      value={form.tgUsername||""}
+                      onChange={e=>setForm(p=>({...p,tgUsername:e.target.value.replace("@","")}))}
+                      placeholder="username"
+                      style={{width:"100%",background: form.tgUsername?"#f0fdf4":"#f0f9ff",border:"1px solid "+(form.tgUsername?"#86efac":C.border),borderRadius:11,padding:"9px 12px 9px 26px",color:C.text,fontSize:13,outline:"none",boxSizing:"border-box"}}
+                    />
+                    {form.tgUsername&&getTgUser()?.username===form.tgUsername&&(
+                      <span style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",fontSize:14}}>✅</span>
+                    )}
+                  </div>
+                  <div style={{fontSize:10,color:"#16a34a",marginTop:3,display:"flex",alignItems:"center",gap:4}}>
+                    {getTgUser()?.username
+                      ? "✈️ Telegram dan avtomatik aniqlandi — boshqalarga ko'rinmaydi"
+                      : "🔒 Boshqalarga ko'rinmaydi — faqat Telegram ga o'tishda ishlatiladi"}
+                  </div>
+                </div>
+
+                {/* BOY VA VAZN */}
+                <div style={{display:"flex",gap:10,marginBottom:10}}>
+                  <div style={{flex:1}}>
+                    <label style={{fontSize:12,color:C.muted,display:"block",marginBottom:5}}>📏 Bo'yi (sm):</label>
+                    <input
+                      type="number" min={100} max={200}
+                      value={form.height||""}
+                      onChange={e=>setForm(p=>({...p,height:e.target.value}))}
+                      placeholder="Taxminiy bo'yingiz"
+                      style={{width:"100%",background:"#f0f9ff",border:"1px solid "+C.border,borderRadius:11,padding:"9px 12px",color:C.text,fontSize:13,outline:"none",boxSizing:"border-box"}}
+                    />
+                    <div style={{fontSize:10,color:C.muted,marginTop:3}}>100–200 sm</div>
+                  </div>
+                  <div style={{flex:1}}>
+                    <label style={{fontSize:12,color:C.muted,display:"block",marginBottom:5}}>⚖️ Vazni (kg):</label>
+                    <input
+                      type="number" min={40} max={150}
+                      value={form.weight||""}
+                      onChange={e=>setForm(p=>({...p,weight:e.target.value}))}
+                      placeholder="Taxminiy vazni"
+                      style={{width:"100%",background:"#f0f9ff",border:"1px solid "+C.border,borderRadius:11,padding:"9px 12px",color:C.text,fontSize:13,outline:"none",boxSizing:"border-box"}}
+                    />
+                    <div style={{fontSize:10,color:C.muted,marginTop:3}}>40–150 kg</div>
+                  </div>
                 </div>
 
                 {/* KIMNI QIDIRMOQDA */}
@@ -3017,19 +4959,151 @@ export default function App() {
                     ))}
                   </div>
                 </div>
-                <button onClick={()=>{
+                {/* OVOZLI TASDIQLASH */}
+                <div style={{marginBottom:14,background:"linear-gradient(135deg,#f0fdf4,#e0f2fe)",borderRadius:16,padding:"16px",border:"1px solid #86efac"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+                    <span style={{fontSize:24}}>🎙️</span>
+                    <div style={{flex:1}}>
+                      <div style={{fontWeight:900,fontSize:14,color:"#16a34a"}}>Ovozli xabar qoldiring!</div>
+                      <div style={{fontSize:11,color:"#15803d",marginTop:1}}>Ishonchlilik +15 ball ⬆️</div>
+                    </div>
+                    {voiceVerified&&<div style={{background:"#22c55e",borderRadius:20,padding:"3px 10px",fontSize:11,fontWeight:700,color:"#fff"}}>✅ Tasdiqlandi</div>}
+                  </div>
+
+                  {!voiceVerified&&!voiceDeclined&&(
+                    <div style={{background:"rgba(255,255,255,0.7)",borderRadius:12,padding:"12px",marginBottom:12}}>
+                      <div style={{fontSize:13,fontWeight:800,color:"#166534",marginBottom:6}}>
+                        💡 Ovoz qoldiring — insonlar sizga ko'proq ishonadi!
+                      </div>
+                      <div style={{fontSize:12,color:"#15803d",lineHeight:1.8}}>
+                        Faqat ismingiz, yoshingiz yoki qayerdanligingizni ayting — bu yetarli! Masalan:<br/>
+                        <span style={{fontStyle:"italic",color:"#166534"}}>
+                          "Salom, men Nilufar, 23 yoshdaman, Toshkentdanman" 🌸
+                        </span>
+                      </div>
+                      <div style={{marginTop:8,fontSize:11,color:"#16a34a",display:"flex",alignItems:"center",gap:5}}>
+                        🔒 <span>Ovozingiz <b>faqat profilingizda</b> eshitiladi — hech kim yuklab ololmaydi</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {voiceBlob&&!voiceVerified&&(
+                    <div style={{marginBottom:10}}>
+                      <audio src={URL.createObjectURL(voiceBlob)} controls style={{width:"100%",height:32}}/>
+                      <div style={{fontSize:10,color:"#15803d",marginTop:4}}>⏱️ {voiceDuration} soniya yozildi</div>
+                    </div>
+                  )}
+
+                  {voiceVerified&&voiceBlob&&(
+                    <div style={{marginBottom:8}}>
+                      <audio src={URL.createObjectURL(voiceBlob)} controls style={{width:"100%",height:32}}/>
+                      <div style={{fontSize:11,color:"#16a34a",marginTop:6,textAlign:"center",fontWeight:600}}>
+                        🎉 Ajoyib! Ovozingiz profilingizga qo'shildi
+                      </div>
+                    </div>
+                  )}
+
+                  {voiceDeclined&&(
+                    <div style={{fontSize:12,color:"#94a3b8",textAlign:"center",padding:"8px 0",fontStyle:"italic"}}>
+                      🔇 Ovozli xabar qoldirishni istamadiniz
+                      <button onClick={()=>setVoiceDeclined(false)} style={{display:"block",margin:"8px auto 0",background:"none",border:"1px solid #86efac",borderRadius:20,padding:"4px 12px",fontSize:11,color:"#16a34a",cursor:"pointer"}}>
+                        Qayta urinib ko'rish
+                      </button>
+                    </div>
+                  )}
+
+                  {!voiceVerified&&!voiceDeclined&&(
+                    <div style={{display:"flex",gap:8}}>
+                      {!voiceRecording?(
+                        <>
+                          <button onClick={async()=>{
+                            try{
+                              const stream = await navigator.mediaDevices.getUserMedia({audio:true});
+                              const mr = new MediaRecorder(stream);
+                              const chunks=[];
+                              mr.ondataavailable=e=>chunks.push(e.data);
+                              mr.onstop=()=>{
+                                const blob=new Blob(chunks,{type:"audio/webm"});
+                                stream.getTracks().forEach(t=>t.stop());
+                                if(voiceDuration<5){toast$("Kamida 5 soniya yozing!","#ef4444");setVoiceDuration(0);return;}
+                                setVoiceBlob(blob);
+                              };
+                              setVoiceRecording(true);
+                              setVoiceDuration(0);
+                              mr.start();
+                              setVoiceMediaRecorder(mr);
+                              const interval=setInterval(()=>{
+                                setVoiceDuration(p=>{
+                                  if(p>=60){mr.stop();setVoiceRecording(false);clearInterval(interval);return 60;}
+                                  return p+1;
+                                });
+                              },1000);
+                              setVoiceInterval(interval);
+                            }catch(e){toast$("Mikrofon ruxsati kerak!","#ef4444");}
+                          }} style={{flex:1,padding:"11px",borderRadius:12,background:"linear-gradient(135deg,#22c55e,#16a34a)",border:"none",color:"#fff",fontWeight:800,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+                            🎙️ Boshlash
+                          </button>
+                          {voiceBlob&&(
+                            <button onClick={()=>{
+                              if(voiceDuration>=5){setVoiceVerified(true);toast$("✅ Ovoz tasdiqlandi! +15 ball","#22c55e");}
+                            }} style={{flex:1,padding:"11px",borderRadius:12,background:"#3b82f6",border:"none",color:"#fff",fontWeight:800,fontSize:13,cursor:"pointer"}}>
+                              ✅ Tasdiqlash
+                            </button>
+                          )}
+                        </>
+                      ):(
+                        <button onClick={()=>{
+                          voiceMediaRecorder?.stop();
+                          setVoiceRecording(false);
+                          clearInterval(voiceInterval);
+                        }} style={{flex:1,padding:"11px",borderRadius:12,background:"#ef4444",border:"none",color:"#fff",fontWeight:800,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+                          ⏹️ To'xtatish ({voiceDuration}s / 60s)
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  {!voiceVerified&&!voiceDeclined&&(
+                    <button onClick={()=>setVoiceDeclined(true)} style={{
+                      width:"100%",marginTop:10,padding:"9px",
+                      borderRadius:12,background:"transparent",
+                      border:"1px dashed #86efac",
+                      color:"#94a3b8",fontWeight:600,fontSize:12,cursor:"pointer"
+                    }}>
+                      Ovozli xabar qoldirishni istamayman
+                    </button>
+                  )}
+                </div>
+
+                <button onClick={async ()=>{
                   if(!form.name||!form.age){toast$("Ism va yosh majburiy!","#ef4444");return;}
                   if(!form.gender){toast$("Jinsni tanlang!","#ef4444");return;}
                   setProfile(form);
                   // Supabase ga saqlash
                   if(sb && myUserId) {
-                    sb.from('users').update({
-                      name:form.name, age:parseInt(form.age)||null,
-                      city:form.city, gender:form.gender,
-                      bio:form.bio, kasb:form.kasb, seeking:form.seeking
-                    }).eq('id',myUserId).catch(()=>{});
+                    const updateData = {
+                      name: form.name,
+                      age: parseInt(form.age)||null,
+                      city: form.city,
+                      gender: form.gender,
+                      bio: form.bio,
+                      kasb: form.kasb,
+                      height: form.height ? parseInt(form.height) : null,
+                      weight: form.weight ? parseInt(form.weight) : null,
+                      seeking: form.seeking,
+                      tg_username: form.tgUsername,
+                      tg_id: form.tgUserId,
+                      photo_url: profilePhoto||null,
+                      extra_photos: myPhotos||[],
+                      updated_at: new Date().toISOString(),
+                    };
+                    const {error} = await sb.from('users').update(updateData).eq('id', myUserId);
+                    if(error) {
+                      // Agar yo'q bo'lsa insert
+                      await sb.from('users').upsert({id:myUserId, ...updateData}).catch(()=>{});
+                    }
                   }
-                  toast$("Profil saqlandi!",C.green);
+                  toast$("✅ Profil saqlandi!",C.green);
                 }} style={bigBtn("linear-gradient(90deg,#ff6eb4,#38bdf8)")}>Saqlash</button>
               </div>
             )}
