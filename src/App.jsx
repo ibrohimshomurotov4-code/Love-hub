@@ -45,6 +45,31 @@ function getMyUserId() {
 // Chat ID (ikki user uchun unique)
 function getChatId(a, b) { return [a, b].sort().join(':'); }
 
+// Rasmni kichraytirish va base64 ga o'tkazish (Storage mavjud bo'lmasa fallback)
+function compressToDataUrl(file, maxPx=300) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const blobUrl = URL.createObjectURL(file);
+    img.onload = () => {
+      const scale = Math.min(maxPx/img.width, maxPx/img.height, 1);
+      const w = Math.round(img.width * scale);
+      const h = Math.round(img.height * scale);
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      URL.revokeObjectURL(blobUrl);
+      resolve(canvas.toDataURL('image/jpeg', 0.75));
+    };
+    img.onerror = () => { URL.revokeObjectURL(blobUrl); reject(new Error('img load')); };
+    img.src = blobUrl;
+  });
+}
+
+// Real user ID (UUID format) tekshirish
+function isRealUserId(id) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(id));
+}
+
 
 const LANGS = {
 uz:  { flag:"UZ",  discover:"Qidiruv", matches:"Yozishmalar", go:"GO", stories:"Stories", shop:"Dokon", writeMsg:"Xabar yozing…", online:"Online", cancel:"Bekor", aboutInfo:"haqida malumot", langTitle:"Til tanlash", settingsTitle:"Sozlamalar", support:"Qollab-quvvatlash", suggestion:"Taklif va shikoyatlar", terms:"Foydalanish shartlari", rate:"Ilovani baholash", myProfile:"Mening profilim", noMatch:"Hali yozishmalar yoq", complaintSent:"Shikoyatingiz tez orada administratsiyamiz tomonidan korib chiqiladi. Betibor bolmaganingiz uchun rahmat!" },
@@ -685,7 +710,7 @@ export default function App() {
             setMsgs(prev => {
               const existing = prev[m.sender_id]||[];
               if(existing.some(x=>x.id===m.id)) return prev;
-              return {...prev, [m.sender_id]: [...existing, {id:m.id, from:'them', text:m.text, time:t, type:m.msg_type&&m.msg_type!=='text'?m.msg_type:undefined, payload:m.payload}]};
+              return {...prev, [m.sender_id]: [...existing, {id:m.id, from:'them', text:m.text, time:t, ts:new Date(m.created_at||Date.now()).getTime(), type:m.msg_type&&m.msg_type!=='text'?m.msg_type:undefined, payload:m.payload}]};
             });
           })
         .on('postgres_changes', { event:'UPDATE', schema:'public', table:'messages', filter:`receiver_id=eq.${myUserId}` },
@@ -839,6 +864,7 @@ export default function App() {
               from:    isMe ? 'me' : 'them',
               text:    m.text,
               time:    t,
+              ts:      new Date(m.created_at||Date.now()).getTime(),
               read:    isMe || !!m.read,
               type:    m.msg_type && m.msg_type!=='text' ? m.msg_type : undefined,
               payload: m.payload,
@@ -1140,9 +1166,9 @@ export default function App() {
     setTimeout(async ()=>{
       setSwipe(null); setLiked(p=>[...p,id]);
 
-      // Supabase ga like saqlash
+      // Supabase ga like saqlash (faqat real UUID userlar uchun)
       let isMatch = false;
-      if(sb && myUserId) {
+      if(sb && myUserId && isRealUserId(id)) {
         const toId = String(id);
         await sb.from('likes').upsert({from_user_id:myUserId, to_user_id:toId}, {onConflict:'from_user_id,to_user_id'}).catch(()=>{});
         // O'zaro like tekshirish
@@ -1155,10 +1181,11 @@ export default function App() {
           const initMsgId = crypto.randomUUID();
           const initT = new Date().toLocaleTimeString('uz',{hour:'2-digit',minute:'2-digit'});
           await sb.from('messages').insert({id:initMsgId, chat_id:chatId, sender_id:myUserId, receiver_id:toId, text:'🎉 Yangi match! Salom aytishni unutmang!', msg_type:'text'}).catch(()=>{});
-          setMsgs(p=>({...p,[toId]:[...(p[toId]||[]),{id:initMsgId,from:'me',text:'🎉 Yangi match! Salom aytishni unutmang!',time:initT,read:false}]}));
+          setMsgs(p=>({...p,[toId]:[...(p[toId]||[]),{id:initMsgId,from:'me',text:'🎉 Yangi match! Salom aytishni unutmang!',time:initT,ts:Date.now(),read:false}]}));
           isMatch = true;
         }
       } else {
+        // Demo user yoki Supabase yo'q — random match
         isMatch = Math.random() > 0.4;
       }
 
@@ -1176,7 +1203,7 @@ export default function App() {
     const t = new Date().toLocaleTimeString("uz",{hour:"2-digit",minute:"2-digit"});
     const msgId = crypto.randomUUID();
     const reply = replyTo;
-    setMsgs(p=>({...p,[chat]:[...(p[chat]||[]),{id:msgId,from:"me",text:txt,time:t,read:false,replyTo:reply||null}]}));
+    setMsgs(p=>({...p,[chat]:[...(p[chat]||[]),{id:msgId,from:"me",text:txt,time:t,ts:Date.now(),read:false,replyTo:reply||null}]}));
     setInput(""); setStickers(false); setMediaPanel(false); setReplyTo(null);
 
     // Demo: 3 soniyadan keyin "o'qildi" ✓✓
@@ -1187,8 +1214,8 @@ export default function App() {
       }));
     }, 3000);
 
-    // Supabase ga saqlash
-    if(sb && myUserId && chat) {
+    // Supabase ga saqlash (faqat real UUID userlar uchun)
+    if(sb && myUserId && chat && isRealUserId(chat)) {
       const chatId = getChatId(myUserId, String(chat));
       sb.from('messages').insert({
         id: msgId,
@@ -1213,7 +1240,18 @@ export default function App() {
     if(coins<g.price){toast$("Tangalar yetarli emas!","#ef4444");return;}
     setCoins(p=>p-g.price); setGiftAnim(g.emoji); setTimeout(()=>setGiftAnim(null),1800);
     const t=new Date().toLocaleTimeString("uz",{hour:"2-digit",minute:"2-digit"});
-    setMsgs(p=>({...p,[chat]:[...(p[chat]||[]),{from:"me",text:g.emoji+" "+g.name+(giftNote?" | "+giftNote:""),time:t,gift:true}]}));
+    const giftMsgId = crypto.randomUUID();
+    setMsgs(p=>({...p,[chat]:[...(p[chat]||[]),{id:giftMsgId,from:"me",text:g.emoji+" "+g.name+(giftNote?" | "+giftNote:""),time:t,ts:Date.now(),gift:true}]}));
+    if(sb && myUserId && chat && isRealUserId(chat)) {
+      sb.from('gifts').insert({
+        from_user_id: myUserId,
+        to_user_id: String(chat),
+        emoji: g.emoji,
+        gift_type: g.name,
+        price: g.price,
+        note: giftNote||null,
+      }).catch(()=>{});
+    }
     setGiftModal(null); setGiftNote(""); toast$(g.emoji+" Sovga yuborildi!",C.sky);
   };
 
@@ -1272,7 +1310,6 @@ export default function App() {
         const totalPhotos=(profilePhoto?1:0)+myPhotos.length;
         if(totalPhotos>=10){toast$("Maksimum 10 ta rasm joylash mumkin!","#ef4444");e.target.value="";return;}
 
-        const url=URL.createObjectURL(f);
         setPhotoCheckLoading(true);
 
         try {
@@ -1317,7 +1354,8 @@ export default function App() {
         }
 
         setPhotoCheckLoading(false);
-        let photoUrl = url;
+        let photoUrl = null;
+        // 1) Supabase Storage ga yuklashga urinish
         if(sb && myUserId) {
           try {
             const ext = (f.name.split('.').pop() || 'jpg').toLowerCase();
@@ -1327,7 +1365,12 @@ export default function App() {
               const { data: { publicUrl } } = sb.storage.from('avatars').getPublicUrl(path);
               photoUrl = publicUrl;
             }
-          } catch(err) { /* blob URL fallback */ }
+          } catch(err) { /* next fallback */ }
+        }
+        // 2) Storage mavjud bo'lmasa, rasmni kichraytirip base64 sifatida saqlash
+        if(!photoUrl) {
+          try { photoUrl = await compressToDataUrl(f, 300); }
+          catch(err) { photoUrl = URL.createObjectURL(f); } // so'nggi fallback (faqat joriy sessiya)
         }
         if(!profilePhoto){
           setProfilePhoto(photoUrl);
@@ -3620,19 +3663,21 @@ export default function App() {
               const renderUser = (u) => {
                 const isPinned = pinnedChats.includes(u.id);
                 const isArchived = archivedChats.includes(u.id);
-                const unread = (msgs[u.id]||[]).filter(m=>m.from!=="me").length;
+                const unread = (msgs[u.id]||[]).filter(m=>m.from!=="me" && !m.read).length;
                 const lastMsg = (msgs[u.id]||[]).slice(-1)[0];
                 const isTyping = typingUsers[u.id];
 
                 // Vaqt formatlash
                 const getTime = () => {
                   if(!lastMsg) return "";
-                  const now = Date.now();
-                  const diff = now - (lastMsg.ts || now);
-                  if(diff < 60000) return "hozirgina";
-                  if(diff < 3600000) return Math.floor(diff/60000)+"daq";
-                  if(diff < 86400000) return Math.floor(diff/3600000)+"soat";
-                  return Math.floor(diff/86400000)+"kun";
+                  if(lastMsg.ts) {
+                    const diff = Date.now() - lastMsg.ts;
+                    if(diff < 60000) return "hozirgina";
+                    if(diff < 3600000) return Math.floor(diff/60000)+"daq";
+                    if(diff < 86400000) return Math.floor(diff/3600000)+"soat";
+                    return Math.floor(diff/86400000)+"kun";
+                  }
+                  return lastMsg.time || "";
                 };
 
                 // Oxirgi xabar holati
@@ -5181,8 +5226,8 @@ export default function App() {
                       seeking: form.seeking,
                       tg_username: form.tgUsername,
                       tg_id: form.tgUserId,
-                      photo_url: profilePhoto||null,
-                      extra_photos: myPhotos||[],
+                      photo_url: (profilePhoto && !profilePhoto.startsWith('blob:')) ? profilePhoto : null,
+                      extra_photos: (myPhotos||[]).filter(u=>!u.startsWith('blob:')),
                       updated_at: new Date().toISOString(),
                     };
                     const {error} = await sb.from('users').upsert({id:myUserId, ...updateData}, {onConflict:'id'});
