@@ -286,7 +286,7 @@ function TrustMeter({ user, liked, blockedCount }) {
 // ============================================================
 // MAXSUS QIDIRUV KOMPONENTI
 // ============================================================
-function AdvancedSearch({ matches, msgs, blocked, onOpenChat, onOpenProfile, onLike, onDislike, onGift, onWave, onBlock }) {
+function AdvancedSearch({ matches, msgs, blocked, users=[], onOpenChat, onOpenProfile, onLike, onDislike, onGift, onWave, onBlock }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
   const [searched, setSearched] = useState(false);
@@ -334,7 +334,7 @@ function AdvancedSearch({ matches, msgs, blocked, onOpenChat, onOpenProfile, onL
   const doSearch = (q) => {
     if (!q.trim()) { setResults([]); setSearched(false); return; }
     const lq = q.toLowerCase().trim();
-    const filtered = ALL_USERS.filter(u =>
+    const filtered = users.filter(u =>
       !blocked.includes(u.id) &&
       u.name.toLowerCase().includes(lq)
     );
@@ -677,39 +677,43 @@ export default function App() {
       setDbReady(true);
 
       // ── REALTIME: Yangi xabarlar ──────────────────────
-      const msgSub = client.channel('msgs')
+      const msgSub = client.channel(`msgs-${myUserId}`)
         .on('postgres_changes', { event:'INSERT', schema:'public', table:'messages', filter:`receiver_id=eq.${myUserId}` },
           (p) => {
             const m = p.new;
-            const t = new Date(m.created_at).toLocaleTimeString('uz',{hour:'2-digit',minute:'2-digit'});
-            setMsgs(prev => ({...prev, [m.sender_id]: [...(prev[m.sender_id]||[]), {id:m.id, from:'them', text:m.text, time:t, type:m.msg_type!=='text'?m.msg_type:undefined, payload:m.payload}]}));
+            const t = new Date(m.created_at||Date.now()).toLocaleTimeString('uz',{hour:'2-digit',minute:'2-digit'});
+            setMsgs(prev => {
+              const existing = prev[m.sender_id]||[];
+              if(existing.some(x=>x.id===m.id)) return prev;
+              return {...prev, [m.sender_id]: [...existing, {id:m.id, from:'them', text:m.text, time:t, type:m.msg_type&&m.msg_type!=='text'?m.msg_type:undefined, payload:m.payload}]};
+            });
           })
-        .on('postgres_changes', { event:'UPDATE', schema:'public', table:'messages' },
+        .on('postgres_changes', { event:'UPDATE', schema:'public', table:'messages', filter:`receiver_id=eq.${myUserId}` },
           (p) => {
             const m = p.new;
             if (m.deleted) {
-              setMsgs(prev => { const u={...prev}; Object.keys(u).forEach(k=>{ u[k]=u[k].filter(x=>x.id!==m.id); }); return u; });
+              setMsgs(prev => { const u={...prev}; Object.keys(u).forEach(k=>{ u[k]=(u[k]||[]).filter(x=>x.id!==m.id); }); return u; });
             } else if (m.edited) {
-              setMsgs(prev => { const u={...prev}; Object.keys(u).forEach(k=>{ u[k]=u[k].map(x=>x.id===m.id?{...x,text:m.text,edited:true}:x); }); return u; });
+              setMsgs(prev => { const u={...prev}; Object.keys(u).forEach(k=>{ u[k]=(u[k]||[]).map(x=>x.id===m.id?{...x,text:m.text,edited:true}:x); }); return u; });
             }
           })
         .subscribe();
 
       // ── REALTIME: Match ───────────────────────────────
-      const matchSub = client.channel('matchs')
+      const matchSub = client.channel(`matchs-${myUserId}`)
         .on('postgres_changes', { event:'INSERT', schema:'public', table:'matches' },
           (p) => {
             const m = p.new;
             const other = m.user1_id === myUserId ? m.user2_id : m.user1_id;
             if (m.user1_id === myUserId || m.user2_id === myUserId) {
               setMatches(prev => prev.includes(other) ? prev : [...prev, other]);
-              if(notifSettings.matches) toast$('🎉 Yangi match!', '#22c55e');
+              toast$('🎉 Yangi match!', '#22c55e');
             }
           })
         .subscribe();
 
       // ── REALTIME: GO elonlar ──────────────────────────
-      const goSub = client.channel('goinvs')
+      const goSub = client.channel(`goinvs-${myUserId}`)
         .on('postgres_changes', { event:'INSERT', schema:'public', table:'go_invites' },
           (p) => {
             const inv = p.new;
@@ -723,26 +727,25 @@ export default function App() {
         .subscribe();
 
       // ── REALTIME: Online ──────────────────────────────
-      const onlineSub = client.channel('onlines')
+      const onlineSub = client.channel(`onlines-${myUserId}`)
         .on('postgres_changes', { event:'UPDATE', schema:'public', table:'users' },
           (p) => { setOnlineUsers(prev => ({...prev, [p.new.id]: p.new.online})); })
         .subscribe();
 
       // ── REALTIME: Sovgalar ────────────────────────────
-      const giftSub = client.channel('gifts-ch')
+      const giftSub = client.channel(`gifts-${myUserId}`)
         .on('postgres_changes', { event:'INSERT', schema:'public', table:'gifts', filter:`to_user_id=eq.${myUserId}` },
           (p) => { const g=p.new; setIncomingGift({ from:{name:'Kimdir',id:g.from_user_id}, gift:{emoji:g.emoji,name:g.gift_type,price:g.price}, note:g.note }); })
         .subscribe();
 
       // ── REALTIME: Like bildirishnoma ──────────────────
-      const likeSub = client.channel('likes-ch')
+      const likeSub = client.channel(`likes-${myUserId}`)
         .on('postgres_changes', { event:'INSERT', schema:'public', table:'likes', filter:`to_user_id=eq.${myUserId}` },
           (p) => {
             const fromId = p.new.from_user_id;
-            const fromUser = ALL_USERS.find(u => String(u.id) === String(fromId));
-            setLikeNotif({
-              user: fromUser || {name:'Kimdir', emoji:'❤️', demoPhoto:null, city:''},
-              time: new Date()
+            setLikeNotif(prev => {
+              const fromUser = {name:'Kimdir', emoji:'❤️', demoPhoto:null, city:''};
+              return {user: fromUser, time: new Date()};
             });
             setTimeout(() => setLikeNotif(null), 5000);
           })
@@ -764,24 +767,73 @@ export default function App() {
     if(!sb || !myUserId) return;
     sb.from('users').select('*').eq('id', myUserId).maybeSingle().then(({data})=>{
       if(data){
-        setProfile(p=>({
-          ...p,
-          name: data.name||p.name,
-          age: data.age||p.age,
-          city: data.city||p.city,
-          gender: data.gender||p.gender,
-          bio: data.bio||p.bio,
-          kasb: data.kasb||p.kasb,
-          height: data.height||p.height,
-          weight: data.weight||p.weight,
-          seeking: data.seeking||p.seeking,
-          tgUsername: data.tg_username||p.tgUsername,
-          tgUserId: data.tg_id||p.tgUserId,
-        }));
+        const loaded = {
+          name:       data.name       || '',
+          firstName:  (data.name||'').split(' ')[0]            || '',
+          lastName:   (data.name||'').split(' ').slice(1).join(' ') || '',
+          age:        data.age        ? String(data.age)  : '',
+          city:       data.city       || '',
+          gender:     data.gender     || '',
+          bio:        data.bio        || '',
+          kasb:       data.kasb       || '',
+          height:     data.height     ? String(data.height) : '',
+          weight:     data.weight     ? String(data.weight) : '',
+          seeking:    data.seeking    || '',
+          tgUsername: data.tg_username|| '',
+          tgUserId:   data.tg_id      ? String(data.tg_id) : '',
+        };
+        setProfile(p=>({...p, ...loaded}));
+        setForm(p=>({...p, ...loaded}));
         if(data.photo_url) setProfilePhoto(data.photo_url);
         if(data.extra_photos) setMyPhotos(data.extra_photos||[]);
       }
     }).catch(()=>{});
+  },[sb, myUserId]);
+
+  // ── SUPABASE: Mavjud matchlarni yuklash ─────────────────
+  useEffect(()=>{
+    if(!sb || !myUserId) return;
+    sb.from('matches')
+      .select('user1_id,user2_id')
+      .or(`user1_id.eq.${myUserId},user2_id.eq.${myUserId}`)
+      .then(({data})=>{
+        if(!data || !data.length) return;
+        const ids = data.map(m => m.user1_id===myUserId ? m.user2_id : m.user1_id);
+        setMatches(prev => [...new Set([...prev, ...ids])]);
+      }).catch(()=>{});
+  },[sb, myUserId]);
+
+  // ── SUPABASE: Xabar tarixini yuklash ────────────────────
+  useEffect(()=>{
+    if(!sb || !myUserId) return;
+    sb.from('messages')
+      .select('*')
+      .or(`sender_id.eq.${myUserId},receiver_id.eq.${myUserId}`)
+      .order('created_at', {ascending:true})
+      .limit(300)
+      .then(({data})=>{
+        if(!data || !data.length) return;
+        setMsgs(prev=>{
+          const next = {...prev};
+          data.forEach(m=>{
+            const isMe    = m.sender_id === myUserId;
+            const partner = isMe ? m.receiver_id : m.sender_id;
+            if(!next[partner]) next[partner] = [];
+            if(next[partner].some(x => x.id === m.id)) return;
+            const t = new Date(m.created_at||Date.now()).toLocaleTimeString('uz',{hour:'2-digit',minute:'2-digit'});
+            next[partner].push({
+              id:      m.id,
+              from:    isMe ? 'me' : 'them',
+              text:    m.text,
+              time:    t,
+              read:    isMe || !!m.read,
+              type:    m.msg_type && m.msg_type!=='text' ? m.msg_type : undefined,
+              payload: m.payload,
+            });
+          });
+          return next;
+        });
+      }).catch(()=>{});
   },[sb, myUserId]);
 
   // ── SUPABASE: Real foydalanuvchilarni yuklash ───────────
@@ -3433,6 +3485,7 @@ export default function App() {
             {discoverSubTab==="search"&&(
               <AdvancedSearch
                 matches={matches} msgs={msgs} blocked={blocked}
+                users={ALL_USERS}
                 onOpenChat={(userId)=>setChat(userId)}
                 onOpenProfile={(user)=>{setShowUserDetail(user);setDetailPhotoIdx(0);}}
                 onLike={(userId)=>like(userId)} onDislike={dislike}
@@ -5097,11 +5150,8 @@ export default function App() {
                       extra_photos: myPhotos||[],
                       updated_at: new Date().toISOString(),
                     };
-                    const {error} = await sb.from('users').update(updateData).eq('id', myUserId);
-                    if(error) {
-                      // Agar yo'q bo'lsa insert
-                      await sb.from('users').upsert({id:myUserId, ...updateData}).catch(()=>{});
-                    }
+                    const {error} = await sb.from('users').upsert({id:myUserId, ...updateData}, {onConflict:'id'});
+                    if(error) { toast$("Saqlashda xatolik: "+error.message, "#ef4444"); return; }
                   }
                   toast$("✅ Profil saqlandi!",C.green);
                 }} style={bigBtn("linear-gradient(90deg,#ff6eb4,#38bdf8)")}>Saqlash</button>
