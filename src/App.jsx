@@ -518,7 +518,7 @@ function AdvancedSearch({ matches, msgs, blocked, users=[], onOpenChat, onOpenPr
                         background:"#f0f9ff"
                       }}>
                         {user.demoPhoto
-                          ? <img src={user.demoPhoto} style={{width:"100%",height:"100%",objectFit:"cover"}}/>
+                          ? <img src={user.demoPhoto} style={{width:"100%",height:"100%",objectFit:"cover"}} onError={e=>{e.currentTarget.style.display='none';}}/>
                           : <span style={{fontSize:36}}>{user.emoji}</span>
                         }
                       </div>
@@ -741,8 +741,24 @@ export default function App() {
       // ── REALTIME: Like bildirishnoma ──────────────────
       const likeSub = client.channel(`likes-${myUserId}`)
         .on('postgres_changes', { event:'INSERT', schema:'public', table:'likes', filter:`to_user_id=eq.${myUserId}` },
-          (p) => {
+          async (p) => {
             const fromId = p.new.from_user_id;
+            // Foydalanuvchi ro'yxatida bo'lmasa, Supabase'dan olish
+            setRealUsers(prev => {
+              if(prev.find(u=>String(u.id)===String(fromId))) return prev;
+              client.from('users').select('*').eq('id',fromId).maybeSingle().then(({data:u})=>{
+                if(u) setRealUsers(r=>r.find(x=>x.id===u.id)?r:[...r,{
+                  id:u.id, name:u.name||'Foydalanuvchi', age:u.age||25,
+                  city:u.city||'', gender:u.gender||'erkak',
+                  demoPhoto:u.photo_url||null, extraPhotos:u.extra_photos||[],
+                  emoji:u.gender==='ayol'?'👩':'👨', online:u.online||false,
+                  rating:u.rating||4.5, vip:u.vip||false,
+                  tgUserId:u.tg_id||'', tgUsername:u.tg_username||'',
+                  bio:u.bio||'', kasb:u.kasb||'', seeking:u.seeking||'',
+                }]);
+              });
+              return prev;
+            });
             setLikeNotif({fromId, time: new Date()});
             setTimeout(() => setLikeNotif(null), 5000);
           })
@@ -1137,7 +1153,9 @@ export default function App() {
           // Birinchi xabarni yuborish
           const chatId = getChatId(myUserId, toId);
           const initMsgId = crypto.randomUUID();
+          const initT = new Date().toLocaleTimeString('uz',{hour:'2-digit',minute:'2-digit'});
           await sb.from('messages').insert({id:initMsgId, chat_id:chatId, sender_id:myUserId, receiver_id:toId, text:'🎉 Yangi match! Salom aytishni unutmang!', msg_type:'text'}).catch(()=>{});
+          setMsgs(p=>({...p,[toId]:[...(p[toId]||[]),{id:initMsgId,from:'me',text:'🎉 Yangi match! Salom aytishni unutmang!',time:initT,read:false}]}));
           isMatch = true;
         }
       } else {
@@ -2077,7 +2095,7 @@ export default function App() {
               >
                 <div style={{width:72,height:72,borderRadius:"50%",overflow:"hidden",margin:"0 auto 8px",border:"3px solid "+C.accent,boxShadow:"0 4px 16px rgba(255,110,180,0.3)"}}>
                   {ALL_USERS[0]?.demoPhoto
-                    ? <img src={USERS[0].demoPhoto} style={{width:"100%",height:"100%",objectFit:"cover"}}/>
+                    ? <img src={ALL_USERS[0].demoPhoto} style={{width:"100%",height:"100%",objectFit:"cover"}} onError={e=>{e.currentTarget.style.display='none';}}/>
                     : <div style={{width:"100%",height:"100%",background:"#fff0f6",display:"flex",alignItems:"center",justifyContent:"center",fontSize:28}}>👤</div>
                   }
                 </div>
@@ -2094,7 +2112,7 @@ export default function App() {
             <div style={{background:"#f0fdf4",borderRadius:14,padding:"14px 16px",marginBottom:20,textAlign:"center",border:"1px solid #86efac"}}>
               <div style={{fontSize:28,marginBottom:8}}>🎉</div>
               <div style={{fontWeight:700,fontSize:14,color:"#1e293b",lineHeight:1.6}}>
-                <b>{USERS[0]?.name?.split(" ")[0]}</b> siz bilan{" "}
+                <b>{ALL_USERS[0]?.name?.split(" ")[0]}</b> siz bilan{" "}
                 <span style={{color:C.accent}}>"{showGoRequestModal.inv?.text?.slice(0,30)}..."</span>{" "}
                 ga bormoqchi va sizga shaxsiy xabar yozmoqchi.
               </div>
@@ -2105,7 +2123,7 @@ export default function App() {
             <div style={{display:"flex",gap:10}}>
               <button onClick={()=>{
                 setShowGoRequestModal(null);
-                const joiner = USERS[0];
+                const joiner = ALL_USERS[0];
                 if(joiner){
                   const t2 = new Date().toLocaleTimeString("uz",{hour:"2-digit",minute:"2-digit"});
                   setMsgs(p=>({...p,[joiner.id]:[...(p[joiner.id]||[]),
@@ -2118,7 +2136,7 @@ export default function App() {
               </button>
               <button onClick={()=>{
                 const inv = showGoRequestModal.inv;
-                const joiner = USERS[0];
+                const joiner = ALL_USERS[0];
                 setShowGoRequestModal(null);
                 // Match qo'shish — chat ochiladi
                 if(joiner) {
@@ -2584,6 +2602,7 @@ export default function App() {
                     draggable={false}
                     className="no-screenshot"
                     onContextMenu={e=>e.preventDefault()}
+                    onError={e=>{e.currentTarget.style.display='none';const d=document.createElement('div');d.style='font-size:90px;display:flex;align-items:center;justify-content:center;width:100%;height:280px;background:#1e293b';d.textContent=showUserDetail.emoji||'👤';e.currentTarget.parentElement.appendChild(d);}}
                     style={{width:"100%",height:"100%",objectFit:"cover",pointerEvents:"none",userSelect:"none",WebkitUserDrag:"none"}}
                   />
                   {/* Watermark */}
