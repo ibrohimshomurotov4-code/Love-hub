@@ -743,10 +743,7 @@ export default function App() {
         .on('postgres_changes', { event:'INSERT', schema:'public', table:'likes', filter:`to_user_id=eq.${myUserId}` },
           (p) => {
             const fromId = p.new.from_user_id;
-            setLikeNotif(prev => {
-              const fromUser = {name:'Kimdir', emoji:'❤️', demoPhoto:null, city:''};
-              return {user: fromUser, time: new Date()};
-            });
+            setLikeNotif({fromId, time: new Date()});
             setTimeout(() => setLikeNotif(null), 5000);
           })
         .subscribe();
@@ -1131,12 +1128,16 @@ export default function App() {
       let isMatch = false;
       if(sb && myUserId) {
         const toId = String(id);
-        await sb.from('likes').upsert({from_user_id:myUserId, to_user_id:toId}).catch(()=>{});
+        await sb.from('likes').upsert({from_user_id:myUserId, to_user_id:toId}, {onConflict:'from_user_id,to_user_id'}).catch(()=>{});
         // O'zaro like tekshirish
-        const { data } = await sb.from('likes').select('id').eq('from_user_id',toId).eq('to_user_id',myUserId).maybeSingle().catch(()=>({data:null}));
-        if(data) {
+        const { data: mutualRows } = await sb.from('likes').select('id').eq('from_user_id',toId).eq('to_user_id',myUserId).limit(1).catch(()=>({data:null}));
+        if(mutualRows && mutualRows.length > 0) {
           const [u1,u2] = [myUserId,toId].sort();
-          await sb.from('matches').upsert({user1_id:u1, user2_id:u2}).catch(()=>{});
+          await sb.from('matches').upsert({user1_id:u1, user2_id:u2}, {onConflict:'user1_id,user2_id'}).catch(()=>{});
+          // Birinchi xabarni yuborish
+          const chatId = getChatId(myUserId, toId);
+          const initMsgId = crypto.randomUUID();
+          await sb.from('messages').insert({id:initMsgId, chat_id:chatId, sender_id:myUserId, receiver_id:toId, text:'🎉 Yangi match! Salom aytishni unutmang!', msg_type:'text'}).catch(()=>{});
           isMatch = true;
         }
       } else {
@@ -1227,6 +1228,9 @@ export default function App() {
 
   const chatUser = useMemo(()=>chat ? ALL_USERS.find(u=>u.id===chat) : null, [chat]);
   const matchUsers = useMemo(()=>ALL_USERS.filter(u=>matches.includes(u.id)&&!blocked.includes(u.id)), [matches, blocked, ALL_USERS]);
+  const likeNotifUser = likeNotif
+    ? (ALL_USERS.find(u=>String(u.id)===String(likeNotif.fromId)) || {name:'Kimdir', emoji:'❤️', demoPhoto:null, city:''})
+    : null;
 
   const ov = {position:"fixed",top:0,left:0,width:"100%",height:"100%",background:"rgba(0,0,0,0.55)",backdropFilter:"blur(4px)",zIndex:300,display:"flex",alignItems:"flex-end",justifyContent:"center"};
   const mb = {background:"#fff",borderRadius:"20px 20px 0 0",padding:20,width:"100%",maxWidth:430,boxShadow:"0 -8px 32px rgba(255,110,180,0.15)",maxHeight:"88vh",overflowY:"auto"};
@@ -1295,10 +1299,22 @@ export default function App() {
         }
 
         setPhotoCheckLoading(false);
+        let photoUrl = url;
+        if(sb && myUserId) {
+          try {
+            const ext = (f.name.split('.').pop() || 'jpg').toLowerCase();
+            const path = `${myUserId}/${Date.now()}.${ext}`;
+            const { error: uploadErr } = await sb.storage.from('avatars').upload(path, f, {upsert:true, contentType: f.type||'image/jpeg'});
+            if(!uploadErr) {
+              const { data: { publicUrl } } = sb.storage.from('avatars').getPublicUrl(path);
+              photoUrl = publicUrl;
+            }
+          } catch(err) { /* blob URL fallback */ }
+        }
         if(!profilePhoto){
-          setProfilePhoto(url);
+          setProfilePhoto(photoUrl);
         } else {
-          setMyPhotos(p=>[...p,url]);
+          setMyPhotos(p=>[...p,photoUrl]);
         }
         toast$("✅ Rasm qo'shildi!",C.green);
         e.target.value="";
@@ -2698,10 +2714,10 @@ export default function App() {
             {/* Rasm */}
             <div style={{position:"relative",flexShrink:0}}>
               <div style={{width:52,height:52,borderRadius:"50%",overflow:"hidden",border:"3px solid #ff6eb4"}}>
-                {likeNotif.user.demoPhoto
-                  ? <img src={likeNotif.user.demoPhoto} style={{width:"100%",height:"100%",objectFit:"cover"}}/>
+                {likeNotifUser.demoPhoto
+                  ? <img src={likeNotifUser.demoPhoto} style={{width:"100%",height:"100%",objectFit:"cover"}} onError={e=>{e.currentTarget.style.display='none';}}/>
                   : <div style={{width:"100%",height:"100%",background:"#fff0f6",display:"flex",alignItems:"center",justifyContent:"center",fontSize:24}}>
-                      {likeNotif.user.emoji||"👤"}
+                      {likeNotifUser.emoji||"👤"}
                     </div>
                 }
               </div>
@@ -2710,17 +2726,17 @@ export default function App() {
             {/* Matn */}
             <div style={{flex:1}}>
               <div style={{fontWeight:900,fontSize:14,color:"#1e293b"}}>
-                {likeNotif.user.name?.split(" ")[0]||"Kimdir"} sizni yoqtirdi! ❤️
+                {likeNotifUser.name?.split(" ")[0]||"Kimdir"} sizni yoqtirdi! ❤️
               </div>
               <div style={{fontSize:12,color:"#94a3b8",marginTop:2}}>
-                {likeNotif.user.city||""} · Hozirgina
+                {likeNotifUser.city||""} · Hozirgina
               </div>
             </div>
             {/* Tugmalar */}
             <div style={{display:"flex",flexDirection:"column",gap:6,flexShrink:0}}>
               <button onClick={()=>{
                 setLikeNotif(null);
-                setShowUserDetail(likeNotif.user);
+                setShowUserDetail(likeNotifUser);
                 setDetailPhotoIdx(0);
               }} style={{
                 background:"linear-gradient(135deg,#ff6eb4,#f472b6)",
@@ -3446,7 +3462,7 @@ export default function App() {
                   <div style={{borderRadius:24,margin:"0 12px 14px",overflow:"hidden",boxShadow:"0 8px 32px rgba(56,189,248,0.1)",transition:"transform 0.45s,opacity 0.4s",transform:swipe==="right"?"translateX(130%) rotate(22deg)":swipe==="left"?"translateX(-130%) rotate(-22deg)":"none",opacity:swipe?0:1,position:"relative"}}>
                     <div style={{height:480,position:"relative",overflow:"hidden",background:"#111"}}>
                       <div onClick={()=>{setShowUserDetail(cur);setDetailPhotoIdx(0);}} style={{width:"100%",height:"100%",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer"}}>
-                        {cur.demoPhoto?<img src={cur.demoPhoto} style={{width:"100%",height:"100%",objectFit:"cover"}}/>:<div style={{fontSize:130}}>{cur.emoji}</div>}
+                        {cur.demoPhoto?<img src={cur.demoPhoto} style={{width:"100%",height:"100%",objectFit:"cover"}} onError={e=>{e.currentTarget.style.display='none';const d=document.createElement('div');d.style='font-size:130px;display:flex;align-items:center;justify-content:center;width:100%;height:100%';d.textContent=cur.emoji;e.currentTarget.parentElement.appendChild(d);}}/>:<div style={{fontSize:130,display:"flex",alignItems:"center",justifyContent:"center",width:"100%",height:"100%"}}>{cur.emoji}</div>}
                       </div>
                       {/* Gradient overlay */}
                       <div style={{position:"absolute",bottom:0,left:0,right:0,height:200,background:"linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 100%)",pointerEvents:"none"}}/>
