@@ -670,7 +670,7 @@ export default function App() {
       // Foydalanuvchini ro'yxatdan o'tkazish
       const { data: existing } = await client.from('users').select('id').eq('id', myUserId).maybeSingle();
       if (!existing) {
-        await client.from('users').insert({ id: myUserId, telegram_id: tgUser.id, name: tgUser.first_name || 'Foydalanuvchi', online: true }).catch(()=>{});
+        await client.from('users').insert({ id: myUserId, telegram_id: tgUser?.id || null, name: tgUser?.first_name || 'Foydalanuvchi', online: true }).catch(()=>{});
       } else {
         await client.from('users').update({ online: true, last_seen: new Date().toISOString() }).eq('id', myUserId).catch(()=>{});
       }
@@ -748,7 +748,7 @@ export default function App() {
           })
         .subscribe();
 
-      realtimeRef.current = [msgSub, matchSub, goSub, onlineSub, giftSub];
+      realtimeRef.current = [msgSub, matchSub, goSub, onlineSub, giftSub, likeSub];
 
       // Online yuborishni davom ettirish
       const iv = setInterval(() => client.from('users').update({online:true,last_seen:new Date().toISOString()}).eq('id',myUserId).catch(()=>{}), 180000);
@@ -1130,7 +1130,7 @@ export default function App() {
     }
 
     // Demo javob (faqat local users uchun)
-    if(ALL_ALL_USERS.find(u=>u.id===chat)) {
+    if(USERS.find(u=>u.id===chat)) {
       setTimeout(()=>{
         const rs=["😊","Zor!","Ha, albatta!","Qiziq…","Rahmat"];
         setMsgs(p=>({...p,[chat]:[...(p[chat]||[]),{from:"them",text:rs[Math.floor(Math.random()*rs.length)],time:new Date().toLocaleTimeString("uz",{hour:"2-digit",minute:"2-digit"})}]}));
@@ -1214,7 +1214,7 @@ export default function App() {
             method:"POST",
             headers:{"Content-Type":"application/json"},
             body:JSON.stringify({
-              model:"claude-sonnet-4-20250514",
+              model:"claude-sonnet-4-6",
               max_tokens:200,
               messages:[{
                 role:"user",
