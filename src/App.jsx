@@ -11,21 +11,25 @@ let supabase = null;
 
 async function initSupabase() {
   if (supabase) return supabase;
-  // Supabase JS CDN dan yuklash
-  if (!window.__supabase) {
-    await new Promise((resolve, reject) => {
-      const s = document.createElement('script');
-      s.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js';
-      s.onload = resolve;
-      s.onerror = reject;
-      document.head.appendChild(s);
+  try {
+    if (!window.supabase) {
+      await new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js';
+        s.onload = resolve;
+        s.onerror = reject;
+        document.head.appendChild(s);
+      });
+    }
+    const { createClient } = window.supabase;
+    supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false },
+      realtime: { enabled: false },
     });
+    return supabase;
+  } catch(e) {
+    return null;
   }
-  supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
-    realtime: { params: { eventsPerSecond: 10 } }
-  });
-  window.__supabase = supabase;
-  return supabase;
 }
 
 // Telegram user ID olish
@@ -676,86 +680,71 @@ export default function App() {
       }
       setDbReady(true);
 
-      // ── REALTIME: Yangi xabarlar ──────────────────────
-      const msgSub = client.channel('msgs')
-        .on('postgres_changes', { event:'INSERT', schema:'public', table:'messages', filter:`receiver_id=eq.${myUserId}` },
-          (p) => {
-            const m = p.new;
+      // ── POLLING: Yangi xabarlar (har 5 soniya) ──────────
+      const pollMsgs = async () => {
+        if(!myUserId) return;
+        const {data} = await client.from('messages')
+          .select('*')
+          .eq('receiver_id', myUserId)
+          .order('created_at', {ascending:false})
+          .limit(50);
+        if(data) {
+          data.forEach(m=>{
             const t = new Date(m.created_at).toLocaleTimeString('uz',{hour:'2-digit',minute:'2-digit'});
-            setMsgs(prev => ({...prev, [m.sender_id]: [...(prev[m.sender_id]||[]), {id:m.id, from:'them', text:m.text, time:t, type:m.msg_type!=='text'?m.msg_type:undefined, payload:m.payload}]}));
-          })
-        .on('postgres_changes', { event:'UPDATE', schema:'public', table:'messages' },
-          (p) => {
-            const m = p.new;
-            if (m.deleted) {
-              setMsgs(prev => { const u={...prev}; Object.keys(u).forEach(k=>{ u[k]=u[k].filter(x=>x.id!==m.id); }); return u; });
-            } else if (m.edited) {
-              setMsgs(prev => { const u={...prev}; Object.keys(u).forEach(k=>{ u[k]=u[k].map(x=>x.id===m.id?{...x,text:m.text,edited:true}:x); }); return u; });
-            }
-          })
-        .subscribe();
-
-      // ── REALTIME: Match ───────────────────────────────
-      const matchSub = client.channel('matchs')
-        .on('postgres_changes', { event:'INSERT', schema:'public', table:'matches' },
-          (p) => {
-            const m = p.new;
-            const other = m.user1_id === myUserId ? m.user2_id : m.user1_id;
-            if (m.user1_id === myUserId || m.user2_id === myUserId) {
-              setMatches(prev => prev.includes(other) ? prev : [...prev, other]);
-              if(notifSettings.matches) toast$('🎉 Yangi match!', '#22c55e');
-            }
-          })
-        .subscribe();
-
-      // ── REALTIME: GO elonlar ──────────────────────────
-      const goSub = client.channel('goinvs')
-        .on('postgres_changes', { event:'INSERT', schema:'public', table:'go_invites' },
-          (p) => {
-            const inv = p.new;
-            if (inv.user_id !== myUserId) {
-              setGoInvites(prev => [{id:inv.id, userId:inv.user_id, name:inv.user_name||'Foydalanuvchi', demoPhoto:inv.user_photo, type:inv.type, text:inv.title+(inv.description?' — '+inv.description:''), city:inv.city||'Toshkent', time:inv.event_time||'—', date:inv.event_date||'—', audience:inv.audience||'barchasi', likes:0}, ...prev]);
-              toast$('📍 Yangi uchrashuv taklifi!', '#22c55e');
-            }
-          })
-        .on('postgres_changes', { event:'UPDATE', schema:'public', table:'go_invites' },
-          (p) => { const inv=p.new; setGoInvites(prev=>prev.map(i=>i.id===inv.id?{...i,likes:inv.likes_count}:i)); })
-        .subscribe();
-
-      // ── REALTIME: Online ──────────────────────────────
-      const onlineSub = client.channel('onlines')
-        .on('postgres_changes', { event:'UPDATE', schema:'public', table:'users' },
-          (p) => { setOnlineUsers(prev => ({...prev, [p.new.id]: p.new.online})); })
-        .subscribe();
-
-      // ── REALTIME: Sovgalar ────────────────────────────
-      const giftSub = client.channel('gifts-ch')
-        .on('postgres_changes', { event:'INSERT', schema:'public', table:'gifts', filter:`to_user_id=eq.${myUserId}` },
-          (p) => { const g=p.new; setIncomingGift({ from:{name:'Kimdir',id:g.from_user_id}, gift:{emoji:g.emoji,name:g.gift_type,price:g.price}, note:g.note }); })
-        .subscribe();
-
-      // ── REALTIME: Like bildirishnoma ──────────────────
-      const likeSub = client.channel('likes-ch')
-        .on('postgres_changes', { event:'INSERT', schema:'public', table:'likes', filter:`to_user_id=eq.${myUserId}` },
-          (p) => {
-            const fromId = p.new.from_user_id;
-            const fromUser = ALL_USERS.find(u => String(u.id) === String(fromId));
-            setLikeNotif({
-              user: fromUser || {name:'Kimdir', emoji:'❤️', demoPhoto:null, city:''},
-              time: new Date()
+            setMsgs(prev=>{
+              const existing = (prev[m.sender_id]||[]).find(x=>x.id===m.id);
+              if(existing) return prev;
+              return {...prev, [m.sender_id]:[...(prev[m.sender_id]||[]),{id:m.id,from:'them',text:m.text,time:t}]};
             });
-            setTimeout(() => setLikeNotif(null), 5000);
-          })
-        .subscribe();
+          });
+        }
+      };
 
-      realtimeRef.current = [msgSub, matchSub, goSub, onlineSub, giftSub];
+      // ── POLLING: Online foydalanuvchilar (har 30 soniya) ─
+      const pollUsers = async () => {
+        const {data} = await client.from('users').select('id,online').neq('id',myUserId);
+        if(data) {
+          const onlineMap = {};
+          data.forEach(u=>{ onlineMap[u.id]=u.online; });
+          setOnlineUsers(onlineMap);
+        }
+      };
 
-      // Online yuborishni davom ettirish
-      const iv = setInterval(() => client.from('users').update({online:true,last_seen:new Date().toISOString()}).eq('id',myUserId).catch(()=>{}), 180000);
-      const handleUnload = () => client.from('users').update({online:false}).eq('id',myUserId).catch(()=>{});
+      // ── POLLING: GO e'lonlar (har 15 soniya) ─────────────
+      const pollGo = async () => {
+        const {data} = await client.from('go_invites')
+          .select('*')
+          .order('created_at',{ascending:false})
+          .limit(20);
+        if(data) {
+          setGoInvites(prev=>{
+            const existIds = new Set(prev.map(i=>String(i.id)));
+            const newOnes = data.filter(inv=>!existIds.has(String(inv.id))&&inv.user_id!==myUserId);
+            if(!newOnes.length) return prev;
+            const mapped = newOnes.map(inv=>({
+              id:inv.id, userId:inv.user_id, name:inv.user_name||'Foydalanuvchi',
+              demoPhoto:inv.user_photo, type:inv.type,
+              text:inv.title+(inv.description?' — '+inv.description:''),
+              city:inv.city||'Toshkent', time:inv.event_time||'—',
+              date:inv.event_date||'—', audience:inv.audience||'barchasi',
+              likes:inv.likes_count||0, urgent:inv.urgent||false
+            }));
+            return [...mapped, ...prev];
+          });
+        }
+      };
+
+      pollMsgs(); pollUsers(); pollGo();
+      const iv1 = setInterval(pollMsgs, 5000);
+      const iv2 = setInterval(pollUsers, 30000);
+      const iv3 = setInterval(pollGo, 15000);
+
+      // Online holat
+      const iv4 = setInterval(()=>client.from('users').update({online:true,last_seen:new Date().toISOString()}).eq('id',myUserId).catch(()=>{}), 60000);
+      const handleUnload = ()=>client.from('users').update({online:false}).eq('id',myUserId).catch(()=>{});
       window.addEventListener('beforeunload', handleUnload);
 
-      return () => { realtimeRef.current.forEach(s=>s.unsubscribe()); clearInterval(iv); window.removeEventListener('beforeunload',handleUnload); };
+      return ()=>{ [iv1,iv2,iv3,iv4].forEach(clearInterval); window.removeEventListener('beforeunload',handleUnload); };
     }).catch(() => setDbReady(true));
   }, []);
 
@@ -858,7 +847,7 @@ export default function App() {
     return [...realUsers, ...demoFiltered];
   },[realUsers]);
 
-  const [profile, setProfile] = useState({name:"Demo Foydalanuvchi",age:"25",city:"Toshkent shahri",gender:"erkak",bio:"Demo rejim",kasb:"Dasturchi",seeking:"Do'st",height:"",weight:""});
+  const [profile, setProfile] = useState({name:"",age:"",city:"",gender:"",bio:"",kasb:"",seeking:"",height:"",weight:""});
   const [form, setForm] = useState(()=>{
     const tg = getTgUser();
     return {
