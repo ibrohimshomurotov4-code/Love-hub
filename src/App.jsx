@@ -763,40 +763,49 @@ export default function App() {
           (p) => { const g=p.new; setIncomingGift({ from:{name:'Kimdir',id:g.from_user_id}, gift:{emoji:g.emoji,name:g.gift_type,price:g.price}, note:g.note }); })
         .subscribe();
 
-      // ── REALTIME: Like bildirishnoma ──────────────────
-      const likeSub = client.channel(`likes-${myUserId}`)
-        .on('postgres_changes', { event:'INSERT', schema:'public', table:'likes', filter:`to_user_id=eq.${myUserId}` },
-          async (p) => {
-            const fromId = p.new.from_user_id;
-            // Foydalanuvchi ro'yxatida bo'lmasa, Supabase'dan olish
-            setRealUsers(prev => {
-              if(prev.find(u=>String(u.id)===String(fromId))) return prev;
-              client.from('users').select('*').eq('id',fromId).maybeSingle().then(({data:u})=>{
-                if(u) setRealUsers(r=>r.find(x=>x.id===u.id)?r:[...r,{
-                  id:u.id, name:u.name||'Foydalanuvchi', age:u.age||25,
-                  city:u.city||'', gender:u.gender||'erkak',
-                  demoPhoto:u.photo_url||null, extraPhotos:u.extra_photos||[],
-                  emoji:u.gender==='ayol'?'👩':'👨', online:u.online||false,
-                  rating:u.rating||4.5, vip:u.vip||false,
-                  tgUserId:u.tg_id||'', tgUsername:u.tg_username||'',
-                  bio:u.bio||'', kasb:u.kasb||'', seeking:u.seeking||'',
-                }]);
-              });
-              return prev;
-            });
-            setLikeNotif({fromId, time: new Date()});
-            setTimeout(() => setLikeNotif(null), 5000);
-          })
-        .subscribe();
+      realtimeRef.current = [msgSub, matchSub, goSub, onlineSub, giftSub];
 
-      realtimeRef.current = [msgSub, matchSub, goSub, onlineSub, giftSub, likeSub];
+      // ── POLLING: Like bildirishnoma (har 3 soniya) ───────
+      let lastLikeCheck = new Date().toISOString();
+      const fetchLikeUser = async (fromId) => {
+        client.from('users').select('*').eq('id',fromId).maybeSingle().then(({data:u})=>{
+          if(u) setRealUsers(r=>r.find(x=>x.id===u.id)?r:[...r,{
+            id:u.id, name:u.name||'Foydalanuvchi', age:u.age||25,
+            city:u.city||'', gender:u.gender||'erkak',
+            demoPhoto:u.photo_url||null, extraPhotos:u.extra_photos||[],
+            emoji:u.gender==='ayol'?'👩':'👨', online:u.online||false,
+            rating:u.rating||4.5, vip:u.vip||false,
+            tgUserId:u.tg_id||'', tgUsername:u.tg_username||'',
+            bio:u.bio||'', kasb:u.kasb||'', seeking:u.seeking||'',
+          }]);
+        });
+      };
+      const likePoller = setInterval(async () => {
+        const since = lastLikeCheck;
+        lastLikeCheck = new Date().toISOString();
+        const { data } = await client.from('likes')
+          .select('from_user_id')
+          .eq('to_user_id', myUserId)
+          .gt('created_at', since)
+          .limit(5)
+          .catch(()=>({data:null}));
+        if(data && data.length > 0) {
+          const fromId = data[0].from_user_id;
+          setRealUsers(prev => {
+            if(!prev.find(u=>String(u.id)===String(fromId))) fetchLikeUser(fromId);
+            return prev;
+          });
+          setLikeNotif({fromId, time: new Date()});
+          setTimeout(()=>setLikeNotif(null), 5000);
+        }
+      }, 3000);
 
       // Online yuborishni davom ettirish
       const iv = setInterval(() => client.from('users').update({online:true,last_seen:new Date().toISOString()}).eq('id',myUserId).catch(()=>{}), 180000);
       const handleUnload = () => client.from('users').update({online:false}).eq('id',myUserId).catch(()=>{});
       window.addEventListener('beforeunload', handleUnload);
 
-      return () => { realtimeRef.current.forEach(s=>s.unsubscribe()); clearInterval(iv); window.removeEventListener('beforeunload',handleUnload); };
+      return () => { realtimeRef.current.forEach(s=>s.unsubscribe()); clearInterval(iv); clearInterval(likePoller); window.removeEventListener('beforeunload',handleUnload); };
     }).catch(() => setDbReady(true));
   }, []);
 
@@ -873,6 +882,33 @@ export default function App() {
           return next;
         });
       }).catch(()=>{});
+  },[sb, myUserId]);
+
+  // ── SUPABASE: GO elonlarni yuklash ──────────────────────
+  useEffect(()=>{
+    if(!sb || !myUserId) return;
+    sb.from('go_invites').select('*').order('created_at',{ascending:false}).limit(100).then(({data})=>{
+      if(!data || !data.length) return;
+      const loaded = data.map(inv=>({
+        id: inv.id,
+        userId: inv.user_id,
+        name: inv.user_name||'Foydalanuvchi',
+        demoPhoto: inv.user_photo||null,
+        type: inv.type||'📅',
+        text: inv.title+(inv.description?' — '+inv.description:''),
+        city: inv.city||'Toshkent',
+        time: inv.event_time||'—',
+        date: inv.event_date||'—',
+        audience: inv.audience||'barchasi',
+        likes: inv.likes_count||0,
+        mine: inv.user_id===myUserId,
+      }));
+      setGoInvites(prev => {
+        const realIds = new Set(loaded.map(i=>String(i.id)));
+        const demoOnly = prev.filter(i=>!realIds.has(String(i.id)) && typeof i.id === 'number');
+        return [...loaded, ...demoOnly];
+      });
+    }).catch(()=>{});
   },[sb, myUserId]);
 
   // ── SUPABASE: Real foydalanuvchilarni yuklash ───────────
@@ -1374,8 +1410,18 @@ export default function App() {
         }
         if(!profilePhoto){
           setProfilePhoto(photoUrl);
+          // Darhol Supabase ga saqlash (blob bo'lmasa)
+          if(sb && myUserId && photoUrl && !photoUrl.startsWith('blob:')) {
+            sb.from('users').upsert({id:myUserId, photo_url:photoUrl, updated_at:new Date().toISOString()},{onConflict:'id'}).catch(()=>{});
+          }
         } else {
-          setMyPhotos(p=>[...p,photoUrl]);
+          const newPhotos = [...myPhotos, photoUrl];
+          setMyPhotos(newPhotos);
+          // Extra photos ham darhol saqlansin
+          if(sb && myUserId) {
+            const clean = newPhotos.filter(u=>!u.startsWith('blob:'));
+            sb.from('users').upsert({id:myUserId, extra_photos:clean, updated_at:new Date().toISOString()},{onConflict:'id'}).catch(()=>{});
+          }
         }
         toast$("✅ Rasm qo'shildi!",C.green);
         e.target.value="";
