@@ -767,8 +767,8 @@ export default function App() {
           tgUsername: data.tg_username||p.tgUsername,
           tgUserId: data.tg_id||p.tgUserId,
         }));
-        if(data.photo_url) setProfilePhoto(data.photo_url);
-        if(data.extra_photos) setMyPhotos(data.extra_photos||[]);
+        if(data.photo_url){ setProfilePhoto(data.photo_url); try{localStorage.setItem('lh_photo',data.photo_url);}catch{} }
+        if(data.extra_photos){ setMyPhotos(data.extra_photos||[]); try{localStorage.setItem('lh_photos',JSON.stringify(data.extra_photos||[]));}catch{} }
       }
     }).catch(()=>{});
   },[sb, myUserId]);
@@ -847,7 +847,12 @@ export default function App() {
     return [...realUsers, ...demoFiltered];
   },[realUsers]);
 
-  const [profile, setProfile] = useState({name:"",age:"",city:"",gender:"",bio:"",kasb:"",seeking:"",height:"",weight:""});
+  const [profile, setProfile] = useState(()=>{
+    try {
+      const saved = localStorage.getItem('lh_profile');
+      return saved ? JSON.parse(saved) : {name:"",age:"",city:"",gender:"",bio:"",kasb:"",seeking:"",height:"",weight:""};
+    } catch { return {name:"",age:"",city:"",gender:"",bio:"",kasb:"",seeking:"",height:"",weight:""}; }
+  });
   const [form, setForm] = useState(()=>{
     const tg = getTgUser();
     return {
@@ -919,7 +924,9 @@ export default function App() {
   const [waveComment, setWaveComment] = useState("");
   const [incomingWave, setIncomingWave] = useState(null);
   const [incomingGift, setIncomingGift] = useState(null);
-  const [profilePhoto, setProfilePhoto] = useState(null);
+  const [profilePhoto, setProfilePhoto] = useState(()=>{
+    try { return localStorage.getItem('lh_photo')||null; } catch { return null; }
+  });
   const [goInvites, setGoInvites] = useState([
     {id:1,userId:1,name:"Nilufar",demoPhoto:"https://i.pravatar.cc/400?img=47",type:"🎬 Kino",text:"Bugun kechqurun kinoga borishni xohlaysizmi?",city:"Toshkent",time:"19:00",date:"Bugun",likes:12,audience:"erkaklar",urgent:true},
     {id:2,userId:3,name:"Dildora",demoPhoto:"https://i.pravatar.cc/400?img=44",type:"🍽️ Ovqatlanish",text:"Toshkentda birgalikda tushlik qilishni taklif etaman",city:"Toshkent",time:"13:00",date:"Ertaga",likes:8,audience:"erkaklar",urgent:false},
@@ -1015,7 +1022,9 @@ export default function App() {
   const [voiceInterval, setVoiceInterval] = useState(null);
   const [photoViewer, setPhotoViewer] = useState(null);
   const [photoCheckLoading, setPhotoCheckLoading] = useState(false);
-  const [myPhotos, setMyPhotos] = useState([]);
+  const [myPhotos, setMyPhotos] = useState(()=>{
+    try { const s=localStorage.getItem('lh_photos'); return s?JSON.parse(s):[]; } catch { return []; }
+  });
   const [msgMenu, setMsgMenu] = useState(null);
   const [replyTo, setReplyTo] = useState(null);
   const [editingMsg, setEditingMsg] = useState(null); // {chatId, idx}
@@ -1234,6 +1243,7 @@ export default function App() {
         setPhotoCheckLoading(false);
         if(!profilePhoto){
           setProfilePhoto(url);
+          try { localStorage.setItem('lh_photo', url); } catch {}
         } else {
           setMyPhotos(p=>[...p,url]);
         }
@@ -5068,6 +5078,10 @@ export default function App() {
                   if(!form.name||!form.age){toast$("Ism va yosh majburiy!","#ef4444");return;}
                   if(!form.gender){toast$("Jinsni tanlang!","#ef4444");return;}
                   setProfile(form);
+                  // localStorage ga saqlash
+                  try { localStorage.setItem('lh_profile', JSON.stringify(form)); } catch {}
+                  if(profilePhoto) try { localStorage.setItem('lh_photo', profilePhoto); } catch {}
+                  try { localStorage.setItem('lh_photos', JSON.stringify(myPhotos)); } catch {}
                   // Supabase ga saqlash
                   if(sb && myUserId) {
                     const updateData = {
