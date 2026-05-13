@@ -701,111 +701,122 @@ export default function App() {
       }
       setDbReady(true);
 
-      // ── REALTIME: Yangi xabarlar ──────────────────────
-      const msgSub = client.channel(`msgs-${myUserId}`)
-        .on('postgres_changes', { event:'INSERT', schema:'public', table:'messages', filter:`receiver_id=eq.${myUserId}` },
-          (p) => {
-            const m = p.new;
-            const t = new Date(m.created_at||Date.now()).toLocaleTimeString('uz',{hour:'2-digit',minute:'2-digit'});
-            setMsgs(prev => {
-              const existing = prev[m.sender_id]||[];
-              if(existing.some(x=>x.id===m.id)) return prev;
-              return {...prev, [m.sender_id]: [...existing, {id:m.id, from:'them', text:m.text, time:t, ts:new Date(m.created_at||Date.now()).getTime(), type:m.msg_type&&m.msg_type!=='text'?m.msg_type:undefined, payload:m.payload}]};
-            });
-          })
-        .on('postgres_changes', { event:'UPDATE', schema:'public', table:'messages', filter:`receiver_id=eq.${myUserId}` },
-          (p) => {
-            const m = p.new;
-            if (m.deleted) {
-              setMsgs(prev => { const u={...prev}; Object.keys(u).forEach(k=>{ u[k]=(u[k]||[]).filter(x=>x.id!==m.id); }); return u; });
-            } else if (m.edited) {
-              setMsgs(prev => { const u={...prev}; Object.keys(u).forEach(k=>{ u[k]=(u[k]||[]).map(x=>x.id===m.id?{...x,text:m.text,edited:true}:x); }); return u; });
-            }
-          })
-        .subscribe();
-
-      // ── REALTIME: Match ───────────────────────────────
-      const matchSub = client.channel(`matchs-${myUserId}`)
-        .on('postgres_changes', { event:'INSERT', schema:'public', table:'matches' },
-          (p) => {
-            const m = p.new;
-            const other = m.user1_id === myUserId ? m.user2_id : m.user1_id;
-            if (m.user1_id === myUserId || m.user2_id === myUserId) {
-              setMatches(prev => prev.includes(other) ? prev : [...prev, other]);
-              toast$('🎉 Yangi match!', '#22c55e');
-            }
-          })
-        .subscribe();
-
-      // ── REALTIME: GO elonlar ──────────────────────────
-      const goSub = client.channel(`goinvs-${myUserId}`)
-        .on('postgres_changes', { event:'INSERT', schema:'public', table:'go_invites' },
-          (p) => {
-            const inv = p.new;
-            if (inv.user_id !== myUserId) {
-              setGoInvites(prev => [{id:inv.id, userId:inv.user_id, name:inv.user_name||'Foydalanuvchi', demoPhoto:inv.user_photo, type:inv.type, text:inv.title+(inv.description?' — '+inv.description:''), city:inv.city||'Toshkent', time:inv.event_time||'—', date:inv.event_date||'—', audience:inv.audience||'barchasi', likes:0}, ...prev]);
-              toast$('📍 Yangi uchrashuv taklifi!', '#22c55e');
-            }
-          })
-        .on('postgres_changes', { event:'UPDATE', schema:'public', table:'go_invites' },
-          (p) => { const inv=p.new; setGoInvites(prev=>prev.map(i=>i.id===inv.id?{...i,likes:inv.likes_count}:i)); })
-        .subscribe();
-
-      // ── REALTIME: Online ──────────────────────────────
-      const onlineSub = client.channel(`onlines-${myUserId}`)
-        .on('postgres_changes', { event:'UPDATE', schema:'public', table:'users' },
-          (p) => { setOnlineUsers(prev => ({...prev, [p.new.id]: p.new.online})); })
-        .subscribe();
-
-      // ── REALTIME: Sovgalar ────────────────────────────
-      const giftSub = client.channel(`gifts-${myUserId}`)
-        .on('postgres_changes', { event:'INSERT', schema:'public', table:'gifts', filter:`to_user_id=eq.${myUserId}` },
-          (p) => { const g=p.new; setIncomingGift({ from:{name:'Kimdir',id:g.from_user_id}, gift:{emoji:g.emoji,name:g.gift_type,price:g.price}, note:g.note }); })
-        .subscribe();
-
-      realtimeRef.current = [msgSub, matchSub, goSub, onlineSub, giftSub];
-
-      // ── POLLING: Like bildirishnoma (har 3 soniya) ───────
+      // ── Polling fallback helpers ──────────────────────
+      const pollers = [];
+      let lastMsgCheck  = new Date().toISOString();
+      let lastMatchCheck= new Date().toISOString();
       let lastLikeCheck = new Date().toISOString();
-      const fetchLikeUser = async (fromId) => {
+
+      const applyMsg = (m) => {
+        const t = new Date(m.created_at||Date.now()).toLocaleTimeString('uz',{hour:'2-digit',minute:'2-digit'});
+        setMsgs(prev => {
+          const ex = prev[m.sender_id]||[];
+          if(ex.some(x=>x.id===m.id)) return prev;
+          return {...prev,[m.sender_id]:[...ex,{id:m.id,from:'them',text:m.text,time:t,ts:new Date(m.created_at||Date.now()).getTime(),type:m.msg_type&&m.msg_type!=='text'?m.msg_type:undefined,payload:m.payload}]};
+        });
+      };
+      const applyMatch = (m) => {
+        const other = m.user1_id===myUserId ? m.user2_id : m.user1_id;
+        if(m.user1_id===myUserId||m.user2_id===myUserId){
+          setMatches(prev=>prev.includes(other)?prev:[...prev,other]);
+          toast$('🎉 Yangi match!','#22c55e');
+        }
+      };
+      const fetchLikeUser = (fromId) => {
         client.from('users').select('*').eq('id',fromId).maybeSingle().then(({data:u})=>{
           if(u) setRealUsers(r=>r.find(x=>x.id===u.id)?r:[...r,{
-            id:u.id, name:u.name||'Foydalanuvchi', age:u.age||25,
-            city:u.city||'', gender:u.gender||'erkak',
-            demoPhoto:u.photo_url||null, extraPhotos:u.extra_photos||[],
-            emoji:u.gender==='ayol'?'👩':'👨', online:u.online||false,
-            rating:u.rating||4.5, vip:u.vip||false,
-            tgUserId:u.tg_id||'', tgUsername:u.tg_username||'',
-            bio:u.bio||'', kasb:u.kasb||'', seeking:u.seeking||'',
+            id:u.id,name:u.name||'Foydalanuvchi',age:u.age||25,city:u.city||'',gender:u.gender||'erkak',
+            demoPhoto:u.photo_url||null,extraPhotos:u.extra_photos||[],emoji:u.gender==='ayol'?'👩':'👨',
+            online:u.online||false,rating:u.rating||4.5,vip:u.vip||false,
+            tgUserId:u.tg_id||'',tgUsername:u.tg_username||'',bio:u.bio||'',kasb:u.kasb||'',seeking:u.seeking||'',
           }]);
         });
       };
-      const likePoller = setInterval(async () => {
-        const since = lastLikeCheck;
-        lastLikeCheck = new Date().toISOString();
-        const { data } = await client.from('likes')
-          .select('from_user_id')
-          .eq('to_user_id', myUserId)
-          .gt('created_at', since)
-          .limit(5)
-          .catch(()=>({data:null}));
-        if(data && data.length > 0) {
-          const fromId = data[0].from_user_id;
-          setRealUsers(prev => {
-            if(!prev.find(u=>String(u.id)===String(fromId))) fetchLikeUser(fromId);
-            return prev;
-          });
-          setLikeNotif({fromId, time: new Date()});
-          setTimeout(()=>setLikeNotif(null), 5000);
+
+      const startMsgPolling = () => {
+        pollers.push(setInterval(async()=>{
+          const since=lastMsgCheck; lastMsgCheck=new Date().toISOString();
+          const{data}=await client.from('messages').select('*').eq('receiver_id',myUserId).gt('created_at',since).order('created_at',{ascending:true}).catch(()=>({data:null}));
+          (data||[]).forEach(applyMsg);
+        },2000));
+      };
+      const startMatchPolling = () => {
+        pollers.push(setInterval(async()=>{
+          const since=lastMatchCheck; lastMatchCheck=new Date().toISOString();
+          const{data}=await client.from('matches').select('*').or(`user1_id.eq.${myUserId},user2_id.eq.${myUserId}`).gt('created_at',since).catch(()=>({data:null}));
+          (data||[]).forEach(applyMatch);
+        },2000));
+      };
+
+      // ── REALTIME: Xabarlar ───────────────────────────
+      let msgSub;
+      try {
+        msgSub = client.channel(`msgs-${myUserId}`)
+          .on('postgres_changes',{event:'INSERT',schema:'public',table:'messages',filter:`receiver_id=eq.${myUserId}`},(p)=>applyMsg(p.new))
+          .on('postgres_changes',{event:'UPDATE',schema:'public',table:'messages',filter:`receiver_id=eq.${myUserId}`},(p)=>{
+            const m=p.new;
+            if(m.deleted){setMsgs(prev=>{const u={...prev};Object.keys(u).forEach(k=>{u[k]=(u[k]||[]).filter(x=>x.id!==m.id)});return u;});}
+            else if(m.edited){setMsgs(prev=>{const u={...prev};Object.keys(u).forEach(k=>{u[k]=(u[k]||[]).map(x=>x.id===m.id?{...x,text:m.text,edited:true}:x)});return u;});}
+          })
+          .subscribe((status)=>{ if(status==='CHANNEL_ERROR'||status==='TIMED_OUT') startMsgPolling(); });
+      } catch(e){ msgSub=null; startMsgPolling(); }
+
+      // ── REALTIME: Match ───────────────────────────────
+      let matchSub;
+      try {
+        matchSub = client.channel(`matchs-${myUserId}`)
+          .on('postgres_changes',{event:'INSERT',schema:'public',table:'matches'},(p)=>applyMatch(p.new))
+          .subscribe((status)=>{ if(status==='CHANNEL_ERROR'||status==='TIMED_OUT') startMatchPolling(); });
+      } catch(e){ matchSub=null; startMatchPolling(); }
+
+      // ── REALTIME: GO elonlar ──────────────────────────
+      let goSub;
+      try {
+        goSub = client.channel(`goinvs-${myUserId}`)
+          .on('postgres_changes',{event:'INSERT',schema:'public',table:'go_invites'},(p)=>{
+            const inv=p.new;
+            if(inv.user_id!==myUserId) setGoInvites(prev=>[{id:inv.id,userId:inv.user_id,name:inv.user_name||'Foydalanuvchi',demoPhoto:inv.user_photo,type:inv.type,text:inv.title+(inv.description?' — '+inv.description:''),city:inv.city||'Toshkent',time:inv.event_time||'—',date:inv.event_date||'—',audience:inv.audience||'barchasi',likes:0},...prev]);
+          })
+          .on('postgres_changes',{event:'UPDATE',schema:'public',table:'go_invites'},(p)=>{const inv=p.new;setGoInvites(prev=>prev.map(i=>i.id===inv.id?{...i,likes:inv.likes_count}:i));})
+          .subscribe();
+      } catch(e){ goSub=null; }
+
+      // ── REALTIME: Online ──────────────────────────────
+      let onlineSub;
+      try {
+        onlineSub = client.channel(`onlines-${myUserId}`)
+          .on('postgres_changes',{event:'UPDATE',schema:'public',table:'users'},(p)=>setOnlineUsers(prev=>({...prev,[p.new.id]:p.new.online})))
+          .subscribe();
+      } catch(e){ onlineSub=null; }
+
+      // ── REALTIME: Sovgalar ────────────────────────────
+      let giftSub;
+      try {
+        giftSub = client.channel(`gifts-${myUserId}`)
+          .on('postgres_changes',{event:'INSERT',schema:'public',table:'gifts',filter:`to_user_id=eq.${myUserId}`},(p)=>{const g=p.new;setIncomingGift({from:{name:'Kimdir',id:g.from_user_id},gift:{emoji:g.emoji,name:g.gift_type,price:g.price},note:g.note});})
+          .subscribe();
+      } catch(e){ giftSub=null; }
+
+      realtimeRef.current = [msgSub,matchSub,goSub,onlineSub,giftSub].filter(Boolean);
+
+      // ── POLLING: Like bildirishnoma (har 2 soniya) ───
+      pollers.push(setInterval(async()=>{
+        const since=lastLikeCheck; lastLikeCheck=new Date().toISOString();
+        const{data}=await client.from('likes').select('from_user_id').eq('to_user_id',myUserId).gt('created_at',since).limit(5).catch(()=>({data:null}));
+        if(data&&data.length>0){
+          const fromId=data[0].from_user_id;
+          setRealUsers(prev=>{if(!prev.find(u=>String(u.id)===String(fromId)))fetchLikeUser(fromId);return prev;});
+          setLikeNotif({fromId,time:new Date()});
+          setTimeout(()=>setLikeNotif(null),5000);
         }
-      }, 3000);
+      },2000));
 
       // Online yuborishni davom ettirish
-      const iv = setInterval(() => client.from('users').update({online:true,last_seen:new Date().toISOString()}).eq('id',myUserId).catch(()=>{}), 180000);
-      const handleUnload = () => client.from('users').update({online:false}).eq('id',myUserId).catch(()=>{});
-      window.addEventListener('beforeunload', handleUnload);
+      const iv = setInterval(()=>client.from('users').update({online:true,last_seen:new Date().toISOString()}).eq('id',myUserId).catch(()=>{}),180000);
+      const handleUnload = ()=>client.from('users').update({online:false}).eq('id',myUserId).catch(()=>{});
+      window.addEventListener('beforeunload',handleUnload);
 
-      return () => { realtimeRef.current.forEach(s=>s.unsubscribe()); clearInterval(iv); clearInterval(likePoller); window.removeEventListener('beforeunload',handleUnload); };
+      return ()=>{ realtimeRef.current.forEach(s=>s?.unsubscribe()); pollers.forEach(clearInterval); clearInterval(iv); window.removeEventListener('beforeunload',handleUnload); };
     }).catch(() => setDbReady(true));
   }, []);
 
@@ -1394,6 +1405,8 @@ export default function App() {
         // 1) Supabase Storage ga yuklashga urinish
         if(sb && myUserId) {
           try {
+            // Bucket yo'q bo'lsa yaratishga urinish (xato bo'lsa davom etish)
+            await sb.storage.createBucket('avatars', {public:true}).catch(()=>{});
             const ext = (f.name.split('.').pop() || 'jpg').toLowerCase();
             const path = `${myUserId}/${Date.now()}.${ext}`;
             const { error: uploadErr } = await sb.storage.from('avatars').upload(path, f, {upsert:true, contentType: f.type||'image/jpeg'});
