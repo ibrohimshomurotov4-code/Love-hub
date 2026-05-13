@@ -899,8 +899,7 @@ export default function App() {
   useEffect(()=>{
     if(!sb || !myUserId) return;
     sb.from('go_invites').select('*').order('created_at',{ascending:false}).limit(100).then(({data})=>{
-      if(!data || !data.length) return;
-      const loaded = data.map(inv=>({
+      const loaded = (data||[]).map(inv=>({
         id: inv.id,
         userId: inv.user_id,
         name: inv.user_name||'Foydalanuvchi',
@@ -914,11 +913,7 @@ export default function App() {
         likes: inv.likes_count||0,
         mine: inv.user_id===myUserId,
       }));
-      setGoInvites(prev => {
-        const realIds = new Set(loaded.map(i=>String(i.id)));
-        const demoOnly = prev.filter(i=>!realIds.has(String(i.id)) && typeof i.id === 'number');
-        return [...loaded, ...demoOnly];
-      });
+      setGoInvites(loaded);
     }).catch(()=>{});
   },[sb, myUserId]);
 
@@ -1069,11 +1064,7 @@ export default function App() {
   const [incomingWave, setIncomingWave] = useState(null);
   const [incomingGift, setIncomingGift] = useState(null);
   const [profilePhoto, setProfilePhoto] = useState(null);
-  const [goInvites, setGoInvites] = useState([
-    {id:1,userId:1,name:"Nilufar",demoPhoto:"https://i.pravatar.cc/400?img=47",type:"🎬 Kino",text:"Bugun kechqurun kinoga borishni xohlaysizmi?",city:"Toshkent",time:"19:00",date:"Bugun",likes:12,audience:"erkaklar",urgent:true},
-    {id:2,userId:3,name:"Dildora",demoPhoto:"https://i.pravatar.cc/400?img=44",type:"🍽️ Ovqatlanish",text:"Toshkentda birgalikda tushlik qilishni taklif etaman",city:"Toshkent",time:"13:00",date:"Ertaga",likes:8,audience:"erkaklar",urgent:false},
-    {id:3,userId:5,name:"Jasur",demoPhoto:"https://i.pravatar.cc/400?img=12",type:"🌳 Parkka",text:"Yangi Ozbekiston bogida sayrga taklif! Havo yaxshi",city:"Toshkent",time:"17:00",date:"Shanba",likes:21,audience:"ayollar",urgent:false},
-  ]);
+  const [goInvites, setGoInvites] = useState([]);
   const [myInviteCount, setMyInviteCount] = useState(0);
   const [lastInviteTime, setLastInviteTime] = useState(null);
   const [showBadWordWarn, setShowBadWordWarn] = useState(false);
@@ -4174,7 +4165,7 @@ export default function App() {
                   </div>
 
                   <div style={{background:"#fef2f2",border:"1px solid #fecaca",borderRadius:12,padding:"9px 12px",marginBottom:12,fontSize:11,color:"#dc2626"}}>Taqiqlangan: dacha, tog, uy, mehmonxona takliflari ochiriladi</div>
-                  <button onClick={()=>{
+                  <button onClick={async()=>{
                     if(!eventForm.title.trim()){toast$("Elon nomini kiriting!","#ef4444");return;}
                     if(!eventForm.desc.trim()){toast$("Tavsif yozing!","#ef4444");return;}
                     if(BANNED.some(w=>eventForm.desc.toLowerCase().includes(w)||eventForm.title.toLowerCase().includes(w))){toast$("Bu elon taqiqlangan!","#ef4444");return;}
@@ -4182,22 +4173,25 @@ export default function App() {
                     if(hb){toast$("⚠️ Haqoratli so'z!","#ef4444");return;}
                     const now2=Date.now();
                     if(lastInviteTime&&(now2-lastInviteTime)<24*60*60*1000){toast$("⏳ 24 soat kutish kerak!","#ef4444");return;}
-                    const newEv={id:now2,userId:myUserId||"me",name:profile?.name||"Men",demoPhoto:profilePhoto||null,type:eventForm.type,text:eventForm.title+(eventForm.desc?" — "+eventForm.desc:""),city:eventForm.location||profile?.city||"Toshkent",time:eventForm.time||"—",date:eventForm.date||"—",audience:eventForm.audience,likes:0,mine:true,urgent:eventForm.urgent||false};
-                    setGoInvites(p=>[newEv,...p]);
-                    // Supabase ga saqlash
+                    setLastInviteTime(now2);
+                    setShowCreateEvent(false);
+                    setEventForm({title:"",type:"🎬 Kino",desc:"",date:"",time:"",location:"",audience:"barchasi",maxPeople:""});
                     if(sb && myUserId) {
-                      sb.from('go_invites').insert({
+                      const {data:rows} = await sb.from('go_invites').insert({
                         user_id:myUserId, user_name:profile?.name||'Men', user_photo:profilePhoto||null,
                         type:eventForm.type, title:eventForm.title, description:eventForm.desc,
                         city:eventForm.location||profile?.city||'Toshkent',
                         event_date:eventForm.date, event_time:eventForm.time,
                         audience:eventForm.audience,
                         max_people:eventForm.maxPeople?parseInt(eventForm.maxPeople):null
-                      }).catch(()=>{});
+                      }).select().catch(()=>({data:null}));
+                      const ins = rows && rows[0];
+                      if(ins){
+                        setGoInvites(p=>[{id:ins.id,userId:ins.user_id,name:ins.user_name||'Men',demoPhoto:ins.user_photo||profilePhoto||null,type:ins.type||eventForm.type,text:ins.title+(ins.description?' — '+ins.description:''),city:ins.city||'Toshkent',time:ins.event_time||'—',date:ins.event_date||'—',audience:ins.audience||'barchasi',likes:0,mine:true},...p]);
+                      }
+                    } else {
+                      setGoInvites(p=>[{id:now2,userId:"me",name:profile?.name||"Men",demoPhoto:profilePhoto||null,type:eventForm.type,text:eventForm.title+(eventForm.desc?" — "+eventForm.desc:""),city:eventForm.location||profile?.city||"Toshkent",time:eventForm.time||"—",date:eventForm.date||"—",audience:eventForm.audience,likes:0,mine:true},...p]);
                     }
-                    setLastInviteTime(now2);
-                    setShowCreateEvent(false);
-                    setEventForm({title:"",type:"🎬 Kino",desc:"",date:"",time:"",location:"",audience:"barchasi",maxPeople:""});
                     toast$("Elon joylashtirildi!",C.green);
                   }} style={bigBtn("linear-gradient(90deg,#6366f1,#8b5cf6)")}>➕ Elon Qoshish</button>
                   <button onClick={()=>setShowCreateEvent(false)} style={{...bigBtn("#e0f2fe"),color:C.text}}>Bekor qilish</button>
