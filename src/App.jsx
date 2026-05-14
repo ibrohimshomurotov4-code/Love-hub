@@ -35,10 +35,18 @@ function getTgUser() {
   } catch { return null; }
 }
 
-// LocalStorage dan user ID olish yoki yaratish
+// myUserId — Telegram ID (birinchi) yoki localStorage UUID (fallback)
 function getMyUserId() {
+  const tg = getTgUser();
+  if (tg?.id) {
+    const tgId = String(tg.id);
+    localStorage.setItem('lh_user_id', tgId);
+    console.log('[myUserId] Telegram ID ishlatilmoqda:', tgId, '| name:', tg.first_name);
+    return tgId;
+  }
   let id = localStorage.getItem('lh_user_id');
   if (!id) { id = crypto.randomUUID(); localStorage.setItem('lh_user_id', id); }
+  console.log('[myUserId] localStorage UUID ishlatilmoqda:', id, '(Telegram WebApp topilmadi)');
   return id;
 }
 
@@ -65,9 +73,12 @@ function compressToDataUrl(file, maxPx=300) {
   });
 }
 
-// Real user ID (UUID format) tekshirish
+// Real user ID tekshirish: UUID yoki Telegram numeric ID (5-12 raqam)
 function isRealUserId(id) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(id));
+  const s = String(id).trim();
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s)) return true;
+  if (/^\d{5,12}$/.test(s)) return true; // Telegram ID format
+  return false;
 }
 
 
@@ -661,9 +672,13 @@ export default function App() {
       const tgUser = getTgUser();
 
       // Foydalanuvchini ro'yxatdan o'tkazish
+      console.log('[init] myUserId:', myUserId, '| tgUser:', tgUser);
       const { data: existing } = await client.from('users').select('id').eq('id', myUserId).maybeSingle();
+      console.log('[init] existing user in DB:', existing);
       if (!existing) {
-        await client.from('users').insert({ id: myUserId, telegram_id: tgUser?.id || null, name: tgUser?.first_name || 'Foydalanuvchi', online: true }).catch(()=>{});
+        const insertData = { id: myUserId, tg_id: tgUser?.id ? String(tgUser.id) : null, tg_username: tgUser?.username || null, name: tgUser?.first_name || 'Foydalanuvchi', online: true };
+        console.log('[init] inserting new user:', insertData);
+        await client.from('users').insert(insertData).catch(e=>console.error('[init] user insert error:', e?.message));
       } else {
         await client.from('users').update({ online: true, last_seen: new Date().toISOString() }).eq('id', myUserId).catch(()=>{});
       }
