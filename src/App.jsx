@@ -1225,16 +1225,17 @@ export default function App() {
       let isMatch = false;
       if(sb && myUserId && isRealUserId(id)) {
         const toId = String(id);
-        const {error:likeErr} = await sb.from('likes').upsert({from_user_id:myUserId, to_user_id:toId}, {onConflict:'from_user_id,to_user_id'}).catch(()=>({error:null}));
-        if(likeErr) console.error('[like] likes upsert:', likeErr.message);
-        // O'zaro like tekshirish — likes jadvalida "from_user_id=toId AND to_user_id=myUserId" qatori bormi?
-        // MUHIM: Supabase RLS "to_user_id = auth.uid()" SELECT policy bo'lishi kerak!
+        // INSERT (upsert emas) — RLS UPDATE blokidan chetlab o'tish; duplicate 23505 normal
+        const {error:likeErr} = await sb.from('likes').insert({from_user_id:myUserId, to_user_id:toId}).catch(()=>({error:null}));
+        if(likeErr && likeErr.code !== '23505') console.error('[like] likes insert:', likeErr.message);
+        // O'zaro like tekshirish — from_user_id=toId, to_user_id=myUserId qatori bormi?
         const { data: mutualRows, error: mutualErr } = await sb.from('likes').select('id').eq('from_user_id',toId).eq('to_user_id',myUserId).limit(1).catch(()=>({data:null,error:null}));
-        if(mutualErr) console.error('[like] mutual check xatosi (RLS policy tekshiring):', mutualErr.message);
+        if(mutualErr) console.error('[like] mutual check:', mutualErr.message);
         if(mutualRows && mutualRows.length > 0) {
           const [u1,u2] = [myUserId,toId].sort();
-          const {error:matchErr} = await sb.from('matches').upsert({user1_id:u1, user2_id:u2}, {onConflict:'user1_id,user2_id'}).catch(()=>({error:null}));
-          if(matchErr) console.error('[like] matches upsert:', matchErr.message);
+          // INSERT (upsert emas) — duplicate bo'lsa match allaqachon bor
+          const {error:matchErr} = await sb.from('matches').insert({user1_id:u1, user2_id:u2}).catch(()=>({error:null}));
+          if(matchErr && matchErr.code !== '23505') console.error('[like] matches insert:', matchErr.message);
           // Birinchi xabarni yuborish
           const chatId = getChatId(myUserId, toId);
           const initMsgId = crypto.randomUUID();
