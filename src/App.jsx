@@ -143,32 +143,7 @@ const TG_GIFS = [
   {id:4,emoji:"🎉",text:"Bayram",url:"https://media.giphy.com/media/g9582DNuQppxC/giphy.gif"},
 ];
 
-const USERS = [
-  {id:1,name:"Nilufar Karimova",age:23,city:"Toshkent shahri",gender:"ayol",demoPhoto:"https://i.pravatar.cc/400?img=47",extraPhotos:["https://i.pravatar.cc/400?img=48","https://i.pravatar.cc/400?img=49"],emoji:"👩",bio:"Raqs va musiqa sevaman",online:true,rating:4.8,vip:true,stories:["🌅","🎶","🌺"],kasb:"Raqqosa, musiqa muallimi",gifts:42,likes:187,voiceVerified:true,voiceUrl:null,voiceDeclined:false,tgUsername:"nilufar_demo",tgUserId:"123456789",seeking:"Hayotga ijobiy qarash va maqsadga intilish men uchun muhim. Samimiy, mehnatkash va oilaga e'tibor beradigan yigit qidirmoqdaman. Birgalikda sayr, musiqa tinglash va yangi joylarni kashf etishni yaxshi ko'raman. Jiddiy munosabat uchun tayyor bo'lgan insonni izlayapman 🌸",
-    trust:{photo:90,bio:85,kasb:80,phone:100,id:95,activity:92,likeRatio:88,blockRatio:97}},
-  {id:2,tgUserId:"234567890",name:"Kamola Yusupova",age:25,city:"Samarqand",gender:"ayol",demoPhoto:"https://i.pravatar.cc/400?img=45",emoji:"👩",bio:"Sayohat qilishni yaxshi koraman",online:false,rating:4.5,vip:false,stories:["🏔️","🌊","🗺️"],kasb:"Sayohat bloggeri",gifts:18,likes:74,seeking:"Dunyo bo'ylab sayohat qilishni orzu qiladigan, hayotdan zavq oladigan do'st yoki hamroh izlayapman. Birgalikda yangi mamlakatlarni ko'rish, turli madaniyatlarni o'rganish — bu mening orzuyim ✈️🌍",
-    trust:{photo:75,bio:70,kasb:65,phone:0,id:0,activity:60,likeRatio:72,blockRatio:90}},
-  {id:3,tgUserId:"345678901",name:"Dildora Nazarova",age:21,city:"Buxoro",gender:"ayol",demoPhoto:"https://i.pravatar.cc/400?img=44",emoji:"👩",bio:"Kitob oqish va pishiriq",online:true,rating:4.9,vip:true,stories:["📚","🍰","🌸"],kasb:"Konditer, blogger",gifts:67,likes:312,seeking:"Kitob o'qishni, oshxonada yangi retseptlar sinab ko'rishni va tabiatda dam olishni yaxshi ko'raman. O'zimga o'xshash — tinch, oilaviy, maqsadli yigit bilan tanishmoqchiman. Turmush qurishga tayyor bo'lgan samimiy insonni qidiraman 💍📚",
-    trust:{photo:95,bio:90,kasb:85,phone:100,id:100,activity:97,likeRatio:95,blockRatio:99}},
-  {id:4,tgUserId:"456789012",name:"Mohira Toshmatova",age:27,city:"Namangan",gender:"ayol",demoPhoto:"https://i.pravatar.cc/400?img=41",emoji:"👩",bio:"Sport va sogrom turmush",online:true,rating:4.6,vip:false,stories:["🏋️","🥑","🧘"],kasb:"Fitness murabbiyi",gifts:9,likes:38,seeking:"Sog'lom turmush tarzi yuritadigan, sport bilan shug'ullanadigan yigit izlayapman. Birgalikda yugurish, velosipedda sayr va sog'lom ovqatlanish — mening hayot tarzim. Jiddiy munosabat uchun 💪🥗",
-    trust:{photo:80,bio:75,kasb:70,phone:0,id:0,activity:78,likeRatio:74,blockRatio:88}},
-  {id:5,tgUserId:"567890123",name:"Jasur Rahimov",age:24,city:"Toshkent shahri",gender:"erkak",demoPhoto:"https://i.pravatar.cc/400?img=12",emoji:"👨",bio:"Futbol va musiqa muxlisi",online:true,rating:4.6,vip:false,stories:["⚽","🎸","🌆"],kasb:"IT dasturchi",gifts:31,likes:142,seeking:"Hayotga ijobiy, quvnoq va o'z maqsadiga ega qiz bilan tanishmoqchiman. Musiqa, futbol va texnologiyani yaxshi ko'raman. Do'stona munosabatdan boshlangan jiddiy aloqani qidiraman 😊⚽",
-    trust:{photo:85,bio:80,kasb:90,phone:100,id:0,activity:83,likeRatio:86,blockRatio:93}},
-  {id:6,tgUserId:"678901234",name:"Bobur Xolmatov",age:26,city:"Samarqand",gender:"erkak",demoPhoto:"https://i.pravatar.cc/400?img=15",emoji:"👨",bio:"Biznes va sayohat",online:true,rating:4.4,vip:true,stories:["💼","✈️","🌍"],kasb:"Tadbirkor",gifts:54,likes:228,seeking:"O'z oldiga maqsad qo'ya oladigan, oilani qadrlaydigan, mustaqil fikrlaydigan qiz bilan jiddiy munosabat qurmoqchiman. Biznes va sayohat — mening dunyom, shu dunyoni birga kashf etgimiz keladi 💼✈️",
-    trust:{photo:88,bio:82,kasb:85,phone:100,id:90,activity:87,likeRatio:89,blockRatio:91}},
-  {id:7,name:"Malika Ergasheva",age:24,city:"Toshkent shahri",gender:"ayol",demoPhoto:"https://i.pravatar.cc/400?img=25",extraPhotos:["https://i.pravatar.cc/400?img=26","https://i.pravatar.cc/400?img=27"],emoji:"👩",bio:"Raqs, yoga va tabiat sevaman",online:true,rating:4.9,vip:true,stories:["🌿","💃","🧘"],kasb:"Yoga murabbiyi",seeking:"Tabiatni sevadigan, tinch va baxtli hayot qurishni xohlagan yigit izlayapman. Yoga, meditatsiya va sog'lom ovqatlanish — mening ustuvorliklarim. Oilaga sodiq, samimiy inson bilan uchrashmоqchiman 🧘🌿",
-    gifts:88,likes:401,trust:{photo:98,bio:95,kasb:90,phone:100,id:100,activity:99,likeRatio:97,blockRatio:100}},
-  {id:8,name:"Nilufar Xasanova",age:22,city:"Fargona",gender:"ayol",demoPhoto:"https://i.pravatar.cc/400?img=32",emoji:"👩",bio:"Musiqa va san'at ixlosmandi",online:false,rating:4.3,vip:false,stories:["🎵","🎨"],kasb:"Musiqachi",gifts:2,likes:11,seeking:"San'at va musiqa sevuvchi, ijodkor yigit bilan tanishmoqchiman. Shunchaki suhbatdosh yoki do'st sifatida boshlanamiz 🎵🎨",
-    trust:{photo:60,bio:50,kasb:55,phone:0,id:0,activity:45,likeRatio:52,blockRatio:78}},
-  {id:9,name:"Jasur Mirzayev",age:28,city:"Toshkent shahri",gender:"erkak",demoPhoto:"https://i.pravatar.cc/400?img=18",emoji:"👨",bio:"Sport va sog'lom hayot tarzi",online:true,rating:4.7,vip:false,stories:["🏃","💪"],kasb:"Murabbiyi",gifts:0,likes:4,
-    trust:{photo:70,bio:65,kasb:60,phone:0,id:0,activity:55,likeRatio:40,blockRatio:70}},
-  {id:10,name:"Sherzod Nazarov",age:29,city:"Toshkent shahri",gender:"erkak",demoPhoto:"https://i.pravatar.cc/400?img=20",emoji:"👨",bio:"Musiqa va san'at ixlosmandiman",online:true,rating:4.5,vip:true,stories:["🎸","🌆"],kasb:"Musiqachi, blogger",gifts:73,likes:295,seeking:"Hayotda ikki narsa muhim: sevgi va maqsad. Shu ikkisini bir insonda topmoqchiman. Musiqa, sayohat va ijodiy loyihalar bilan shug'ullanaman. Jiddiy, oilaviy munosabat uchun tayyorman 🎸❤️",
-    trust:{photo:90,bio:85,kasb:88,phone:100,id:95,activity:91,likeRatio:90,blockRatio:94}},
-  {id:11,name:"Feruza Umarova",age:22,city:"Fargona",gender:"ayol",demoPhoto:"https://i.pravatar.cc/400?img=36",emoji:"👩",bio:"Tabiat va sayr sevaman",online:true,rating:4.6,vip:false,stories:["🌸","🌿"],kasb:"Dizayner",gifts:6,likes:29,seeking:"Ijodkor, quvnoq va hayotga ochiq yigit bilan tanishmoqchiman. Do'stlik asosida munosabat qurishni afzal ko'raman 🌸",
-    trust:{photo:78,bio:72,kasb:68,phone:0,id:0,activity:70,likeRatio:68,blockRatio:85}},
-  {id:12,name:"Otabek Yusupov",age:25,city:"Namangan",gender:"erkak",demoPhoto:"https://i.pravatar.cc/400?img=22",emoji:"👨",bio:"Sport va sog'lom turmush",online:false,rating:4.3,vip:false,stories:["🏋️","🚴"],kasb:"Fitnes murabbiyi",gifts:0,likes:3,
-    trust:{photo:55,bio:45,kasb:50,phone:0,id:0,activity:40,likeRatio:35,blockRatio:65}},
-];
+const USERS = [];
 
 // Ishonchlilik hisoblash funksiyasi
 const calcTrust = (user, extraLikes=0, extraBlocks=0) => {
@@ -197,14 +172,7 @@ const TRUST_CRITERIA = [
   {key:'blockRatio',icon:'🛡️',label:'Bloklanmagan',      desc:'Foydalanuvchilar tomonidan kamdan blok'},
 ];
 
-const DEMO_NEARBY = [
-  {id:101,name:"Nilufar",age:23,gender:"ayol",demoPhoto:"https://i.pravatar.cc/400?img=47",dist:120,angle:45,online:true,status:"Safoda tushlik qilmoqchiman"},
-  {id:102,name:"Kamola",age:25,gender:"ayol",demoPhoto:"https://i.pravatar.cc/400?img=45",dist:280,angle:160,online:true,status:"Parkda sayr qoshiling!"},
-  {id:103,name:"Jasur",age:24,gender:"erkak",demoPhoto:"https://i.pravatar.cc/400?img=12",dist:430,angle:230,online:false,status:""},
-  {id:104,name:"Dildora",age:21,gender:"ayol",demoPhoto:"https://i.pravatar.cc/400?img=44",dist:650,angle:300,online:true,status:"Velik minmoqchiman"},
-  {id:105,name:"Bobur",age:26,gender:"erkak",demoPhoto:"https://i.pravatar.cc/400?img=15",dist:820,angle:80,online:true,status:"Kinoga boramiz"},
-  {id:106,name:"Mohira",age:27,gender:"ayol",demoPhoto:"https://i.pravatar.cc/400?img=41",dist:500,angle:200,online:true,status:"Choyxonada otirganman"},
-];
+const DEMO_NEARBY = [];
 
 function Stars({r=4.5}) {
   return <span style={{color:C.gold,fontSize:13}}>{"★".repeat(Math.floor(r))}{"☆".repeat(5-Math.floor(r))} <span style={{fontSize:11,color:C.muted}}>{r}</span></span>;
@@ -1024,11 +992,11 @@ export default function App() {
       tgUserId: tg?.id ? String(tg.id) : "",
     };
   });
-  const [matches, setMatches] = useState([1,2]);
+  const [matches, setMatches] = useState([]);
   const [liked, setLiked] = useState([]);
   const [blocked, setBlocked] = useState([]);
   const [blockedTypes, setBlockedTypes] = useState({});
-  const [msgs, setMsgs] = useState({1:[{from:"them",text:"Salom! 😊",time:"14:30"}],2:[{from:"them",text:"Assalomu alaykum!",time:"12:15"}]});
+  const [msgs, setMsgs] = useState({});
   const [chat, setChat] = useState(null);
   const [input, setInput] = useState("");
   const [coins, setCoins] = useState(150);
@@ -2653,7 +2621,7 @@ export default function App() {
                       {icon:"👑",label:"VIP foydalanuvchilar",val:ALL_USERS.filter(u=>u.vip).length,color:"#f59e0b"},
                       {icon:"💬",label:"Jami yozishmalar",val:Object.values(msgs).reduce((a,b)=>a+(b?.length||0),0),color:"#38bdf8"},
                       {icon:"🚀",label:"GO elonlari",val:goInvites.length,color:"#ff6eb4"},
-                      {icon:"🚨",label:"Kutilayotgan shikoyatlar",val:2,color:"#ef4444"},
+                      {icon:"🚨",label:"Kutilayotgan shikoyatlar",val:0,color:"#ef4444"},
                     ].map((s,i)=>(
                       <div key={i} style={{background:"#fff",borderRadius:16,padding:"14px 16px",marginBottom:8,border:"1px solid "+C.border,display:"flex",alignItems:"center",gap:14}}>
                         <div style={{width:44,height:44,borderRadius:12,background:s.color+"18",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,flexShrink:0}}>{s.icon}</div>
@@ -3588,6 +3556,19 @@ export default function App() {
                         </div>
                       </div>
                       <button onClick={()=>{setShowCardFilter(false);toast$("Filtr qo'llandi!",C.accent);}} style={{width:"100%",background:"linear-gradient(90deg,#ff6eb4,#38bdf8)",border:"none",borderRadius:14,padding:"14px",color:"#fff",fontWeight:900,fontSize:15,cursor:"pointer",boxShadow:"0 4px 16px rgba(255,110,180,0.3)"}}>✅ Qo'llash</button>
+                    </div>
+                  </div>
+                )}
+                {!cur&&(
+                  <div style={{textAlign:"center",padding:"60px 24px"}}>
+                    <div style={{fontSize:64,marginBottom:16,animation:"pulse 2s infinite"}}>💕</div>
+                    <div style={{fontWeight:900,fontSize:18,color:C.text,marginBottom:8}}>
+                      {realUsers.length===0?"Foydalanuvchilar yuklanmoqda...":"Hamma ko'rildi!"}
+                    </div>
+                    <div style={{fontSize:13,color:C.muted,lineHeight:1.6}}>
+                      {realUsers.length===0
+                        ? "Supabase dan foydalanuvchilar yuklanayapti, biroz kuting"
+                        : "Filtringizni o'zgartiring yoki keyinroq qaytib keling"}
                     </div>
                   </div>
                 )}
