@@ -719,6 +719,7 @@ export default function App() {
         const other = m.user1_id===myUserId ? m.user2_id : m.user1_id;
         if(m.user1_id===myUserId||m.user2_id===myUserId){
           setMatches(prev=>prev.includes(other)?prev:[...prev,other]);
+          fetchLikeUser(other);
           toast$('🎉 Yangi match!','#22c55e');
         }
       };
@@ -854,10 +855,26 @@ export default function App() {
     sb.from('matches')
       .select('user1_id,user2_id')
       .or(`user1_id.eq.${myUserId},user2_id.eq.${myUserId}`)
-      .then(({data})=>{
+      .then(async ({data, error})=>{
+        if(error) { console.error('[matches load]', error.message); return; }
         if(!data || !data.length) return;
         const ids = data.map(m => m.user1_id===myUserId ? m.user2_id : m.user1_id);
         setMatches(prev => [...new Set([...prev, ...ids])]);
+        // Partner profillarini yuklash (matches tabida bo'lgan lekin realUsers da yo'q bo'lganlar)
+        const {data:pData} = await sb.from('users').select('*').in('id', ids).catch(()=>({data:null}));
+        if(pData && pData.length > 0) {
+          setRealUsers(prev => {
+            const newOnes = pData.filter(u=>!prev.find(x=>x.id===u.id)).map(u=>({
+              id:u.id, name:u.name||'Foydalanuvchi', age:u.age||25, city:u.city||'',
+              gender:u.gender||'erkak', demoPhoto:u.photo_url||null,
+              extraPhotos:u.extra_photos||[], emoji:u.gender==='ayol'?'👩':'👨',
+              online:u.online||false, rating:u.rating||4.5, vip:u.vip||false,
+              tgUserId:u.tg_id||'', tgUsername:u.tg_username||'', bio:u.bio||'',
+              kasb:u.kasb||'', seeking:u.seeking||'',
+            }));
+            return newOnes.length > 0 ? [...prev, ...newOnes] : prev;
+          });
+        }
       }).catch(()=>{});
   },[sb, myUserId]);
 
@@ -1208,12 +1225,16 @@ export default function App() {
       let isMatch = false;
       if(sb && myUserId && isRealUserId(id)) {
         const toId = String(id);
-        await sb.from('likes').upsert({from_user_id:myUserId, to_user_id:toId}, {onConflict:'from_user_id,to_user_id'}).catch(()=>{});
-        // O'zaro like tekshirish
-        const { data: mutualRows } = await sb.from('likes').select('id').eq('from_user_id',toId).eq('to_user_id',myUserId).limit(1).catch(()=>({data:null}));
+        const {error:likeErr} = await sb.from('likes').upsert({from_user_id:myUserId, to_user_id:toId}, {onConflict:'from_user_id,to_user_id'}).catch(()=>({error:null}));
+        if(likeErr) console.error('[like] likes upsert:', likeErr.message);
+        // O'zaro like tekshirish — likes jadvalida "from_user_id=toId AND to_user_id=myUserId" qatori bormi?
+        // MUHIM: Supabase RLS "to_user_id = auth.uid()" SELECT policy bo'lishi kerak!
+        const { data: mutualRows, error: mutualErr } = await sb.from('likes').select('id').eq('from_user_id',toId).eq('to_user_id',myUserId).limit(1).catch(()=>({data:null,error:null}));
+        if(mutualErr) console.error('[like] mutual check xatosi (RLS policy tekshiring):', mutualErr.message);
         if(mutualRows && mutualRows.length > 0) {
           const [u1,u2] = [myUserId,toId].sort();
-          await sb.from('matches').upsert({user1_id:u1, user2_id:u2}, {onConflict:'user1_id,user2_id'}).catch(()=>{});
+          const {error:matchErr} = await sb.from('matches').upsert({user1_id:u1, user2_id:u2}, {onConflict:'user1_id,user2_id'}).catch(()=>({error:null}));
+          if(matchErr) console.error('[like] matches upsert:', matchErr.message);
           // Birinchi xabarni yuborish
           const chatId = getChatId(myUserId, toId);
           const initMsgId = crypto.randomUUID();
