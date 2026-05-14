@@ -1218,43 +1218,42 @@ export default function App() {
 
   const like = id => {
     setSwipe("right");
-    setTimeout(async ()=>{
-      setSwipe(null); setLiked(p=>[...p,id]);
+    setLiked(p=>[...p,id]);
 
-      // Supabase ga like saqlash (faqat real UUID userlar uchun)
-      let isMatch = false;
-      if(sb && myUserId && isRealUserId(id)) {
-        const toId = String(id);
-        // INSERT (upsert emas) — RLS UPDATE blokidan chetlab o'tish; duplicate 23505 normal
+    // Animatsiya tugagandan so'ng (0.3s) kartani almashtirish
+    setTimeout(()=>{ setSwipe(null); setCardI(p=>p+1); setCardMenu(null); }, 320);
+
+    // Supabase amallar karta animatsiyasidan MUSTAQIL ishlaydi
+    if(sb && myUserId && isRealUserId(id)) {
+      const toId = String(id);
+      (async()=>{
         const {error:likeErr} = await sb.from('likes').insert({from_user_id:myUserId, to_user_id:toId}).catch(()=>({error:null}));
         if(likeErr && likeErr.code !== '23505') console.error('[like] likes insert:', likeErr.message);
-        // O'zaro like tekshirish — from_user_id=toId, to_user_id=myUserId qatori bormi?
         const { data: mutualRows, error: mutualErr } = await sb.from('likes').select('id').eq('from_user_id',toId).eq('to_user_id',myUserId).limit(1).catch(()=>({data:null,error:null}));
         if(mutualErr) console.error('[like] mutual check:', mutualErr.message);
         if(mutualRows && mutualRows.length > 0) {
           const [u1,u2] = [myUserId,toId].sort();
-          // INSERT (upsert emas) — duplicate bo'lsa match allaqachon bor
           const {error:matchErr} = await sb.from('matches').insert({user1_id:u1, user2_id:u2}).catch(()=>({error:null}));
           if(matchErr && matchErr.code !== '23505') console.error('[like] matches insert:', matchErr.message);
-          // Birinchi xabarni yuborish
           const chatId = getChatId(myUserId, toId);
           const initMsgId = crypto.randomUUID();
           const initT = new Date().toLocaleTimeString('uz',{hour:'2-digit',minute:'2-digit'});
           await sb.from('messages').insert({id:initMsgId, chat_id:chatId, sender_id:myUserId, receiver_id:toId, text:'🎉 Yangi match! Salom aytishni unutmang!', msg_type:'text'}).catch(()=>{});
           setMsgs(p=>({...p,[toId]:[...(p[toId]||[]),{id:initMsgId,from:'me',text:'🎉 Yangi match! Salom aytishni unutmang!',time:initT,ts:Date.now(),read:false}]}));
-          isMatch = true;
+          setMatches(p=>[...p,id]);
+          toast$("🎉 Yangi match!",C.green);
+        } else {
+          toast$("Like bosildingiz! ❤️");
         }
-      } else {
-        // Demo user yoki Supabase yo'q — random match
-        isMatch = Math.random() > 0.4;
-      }
-
+      })();
+    } else {
+      // Demo user — random match
+      const isMatch = Math.random() > 0.4;
       if(isMatch){ setMatches(p=>[...p,id]); toast$("🎉 Yangi match!",C.green); }
       else toast$("Like bosildingiz! ❤️");
-      setCardI(p=>p+1); setCardMenu(null);
-    },400);
+    }
   };
-  const dislike = () => { setSwipe("left"); setTimeout(()=>{setSwipe(null);setCardI(p=>p+1);setCardMenu(null);},400); };
+  const dislike = () => { setSwipe("left"); setTimeout(()=>{ setSwipe(null); setCardI(p=>p+1); setCardMenu(null); }, 320); };
 
   const send = useCallback(txt => {
     if(!txt.trim()) return;
@@ -3593,7 +3592,7 @@ export default function App() {
                   </div>
                 )}
                 {cur&&(
-                  <div style={{borderRadius:24,margin:"0 12px 14px",overflow:"hidden",boxShadow:"0 8px 32px rgba(56,189,248,0.1)",transition:"transform 0.45s,opacity 0.4s",transform:swipe==="right"?"translateX(130%) rotate(22deg)":swipe==="left"?"translateX(-130%) rotate(-22deg)":"none",opacity:swipe?0:1,position:"relative"}}>
+                  <div key={cardI} style={{borderRadius:24,margin:"0 12px 14px",overflow:"hidden",boxShadow:"0 8px 32px rgba(56,189,248,0.1)",transition:"transform 0.3s,opacity 0.3s",transform:swipe==="right"?"translateX(120%) rotate(18deg)":swipe==="left"?"translateX(-120%) rotate(-18deg)":"none",opacity:swipe?0:1,position:"relative"}}>
                     <div style={{height:480,position:"relative",overflow:"hidden",background:"#111"}}>
                       <div onClick={()=>{setShowUserDetail(cur);setDetailPhotoIdx(0);}} style={{width:"100%",height:"100%",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer"}}>
                         {cur.demoPhoto?<img src={cur.demoPhoto} style={{width:"100%",height:"100%",objectFit:"cover"}} onError={e=>{e.currentTarget.style.display='none';const d=document.createElement('div');d.style='font-size:130px;display:flex;align-items:center;justify-content:center;width:100%;height:100%';d.textContent=cur.emoji;e.currentTarget.parentElement.appendChild(d);}}/>:<div style={{fontSize:130,display:"flex",alignItems:"center",justifyContent:"center",width:"100%",height:"100%"}}>{cur.emoji}</div>}
