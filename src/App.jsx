@@ -1200,50 +1200,42 @@ export default function App() {
   const cur = users[cardI % Math.max(users.length,1)];
 
   const like = id => {
-    console.log('[like] ▶ called | id:', id, '| type:', typeof id, '| myUserId:', myUserId, '| sb:', !!sb, '| isRealUUID(id):', isRealUserId(id), '| isRealUUID(myUserId):', isRealUserId(myUserId));
+    // 1) Animatsiya — har doim, Supabase ga bog'liq emas
     setSwipe("right");
-    setLiked(p=>[...p,id]);
+    setLiked(p => [...p, id]);
+    setTimeout(() => { setSwipe(null); setCardI(p => p + 1); setCardMenu(null); }, 320);
 
-    // Animatsiya tugagandan so'ng (0.3s) kartani almashtirish
-    setTimeout(()=>{ setSwipe(null); setCardI(p=>p+1); setCardMenu(null); }, 320);
+    // 2) Supabase — background, xato bo'lsa ham karta o'tib ketgan
+    if (!sb || !myUserId) { toast$("Like bosildingiz! ❤️"); return; }
+    const toId = String(id);
+    const fromId = String(myUserId);
+    console.log('[like] from:', fromId, '→ to:', toId);
+    (async () => {
+      const { error: likeErr } = await sb.from('likes')
+        .insert({ from_user_id: fromId, to_user_id: toId })
+        .catch(e => ({ error: e }));
+      console.log('[like] insert:', likeErr ? `${likeErr.code} ${likeErr.message}` : 'ok');
+      if (likeErr && likeErr.code !== '23505') { toast$("Like bosildingiz! ❤️"); return; }
 
-    // Supabase amallar karta animatsiyasidan MUSTAQIL ishlaydi
-    if(sb && myUserId && isRealUserId(id)) {
-      const toId = String(id);
-      console.log('[like] ✅ Supabase path | from:', myUserId, '→ to:', toId);
-      (async()=>{
-        const {data:likeData, error:likeErr} = await sb.from('likes').insert({from_user_id:myUserId, to_user_id:toId}).select().catch(e=>({data:null,error:e}));
-        console.log('[like] likes.insert result | data:', likeData, '| error:', likeErr ? `${likeErr.code}: ${likeErr.message}` : null);
-        if(likeErr && likeErr.code !== '23505') console.error('[like] ❌ likes insert failed:', likeErr.code, likeErr.message);
-        const { data: mutualRows, error: mutualErr } = await sb.from('likes').select('id').eq('from_user_id',toId).eq('to_user_id',myUserId).limit(1).catch(e=>({data:null,error:e}));
-        console.log('[like] mutual check | from:', toId, '→ to:', myUserId, '| rows:', mutualRows, '| error:', mutualErr ? `${mutualErr.code}: ${mutualErr.message}` : null);
-        if(mutualErr) console.error('[like] ❌ mutual check failed:', mutualErr.code, mutualErr.message);
-        if(mutualRows && mutualRows.length > 0) {
-          console.log('[like] 🎉 MUTUAL LIKE — creating match');
-          const [u1,u2] = [myUserId,toId].sort();
-          const {data:matchData, error:matchErr} = await sb.from('matches').insert({user1_id:u1, user2_id:u2}).select().catch(e=>({data:null,error:e}));
-          console.log('[like] matches.insert result | data:', matchData, '| error:', matchErr ? `${matchErr.code}: ${matchErr.message}` : null);
-          if(matchErr && matchErr.code !== '23505') console.error('[like] ❌ matches insert failed:', matchErr.code, matchErr.message);
-          const chatId = getChatId(myUserId, toId);
-          const initMsgId = crypto.randomUUID();
-          const initT = new Date().toLocaleTimeString('uz',{hour:'2-digit',minute:'2-digit'});
-          const {error:msgErr} = await sb.from('messages').insert({id:initMsgId, chat_id:chatId, sender_id:myUserId, receiver_id:toId, text:'🎉 Yangi match! Salom aytishni unutmang!', msg_type:'text'}).catch(e=>({error:e}));
-          console.log('[like] init message insert | error:', msgErr ? `${msgErr.code}: ${msgErr.message}` : null);
-          setMsgs(p=>({...p,[toId]:[...(p[toId]||[]),{id:initMsgId,from:'me',text:'🎉 Yangi match! Salom aytishni unutmang!',time:initT,ts:Date.now(),read:false}]}));
-          setMatches(p=>[...p,id]);
-          toast$("🎉 Yangi match!",C.green);
-        } else {
-          console.log('[like] no mutual like yet — like saved, waiting for other side');
-          toast$("Like bosildingiz! ❤️");
-        }
-      })();
-    } else {
-      console.warn('[like] ⚠️ DEMO PATH | sb:', !!sb, '| myUserId:', myUserId, '| id:', id, '| isReal(id):', isRealUserId(id));
-      // Demo user — random match
-      const isMatch = Math.random() > 0.4;
-      if(isMatch){ setMatches(p=>[...p,id]); toast$("🎉 Yangi match!",C.green); }
-      else toast$("Like bosildingiz! ❤️");
-    }
+      const { data: mutual } = await sb.from('likes')
+        .select('id').eq('from_user_id', toId).eq('to_user_id', fromId).limit(1)
+        .catch(() => ({ data: null }));
+      console.log('[like] mutual rows:', mutual?.length ?? 'null');
+
+      if (mutual && mutual.length > 0) {
+        const [u1, u2] = [fromId, toId].sort();
+        await sb.from('matches').insert({ user1_id: u1, user2_id: u2 }).catch(() => {});
+        const chatId = getChatId(fromId, toId);
+        const msgId = crypto.randomUUID();
+        const t = new Date().toLocaleTimeString('uz', { hour: '2-digit', minute: '2-digit' });
+        await sb.from('messages').insert({ id: msgId, chat_id: chatId, sender_id: fromId, receiver_id: toId, text: '🎉 Yangi match! Salom aytishni unutmang!', msg_type: 'text' }).catch(() => {});
+        setMsgs(p => ({ ...p, [toId]: [...(p[toId] || []), { id: msgId, from: 'me', text: '🎉 Yangi match! Salom aytishni unutmang!', time: t, ts: Date.now(), read: false }] }));
+        setMatches(p => [...p, id]);
+        toast$("🎉 Yangi match!", C.green);
+      } else {
+        toast$("Like bosildingiz! ❤️");
+      }
+    })();
   };
   const dislike = () => { setSwipe("left"); setTimeout(()=>{ setSwipe(null); setCardI(p=>p+1); setCardMenu(null); }, 320); };
 
